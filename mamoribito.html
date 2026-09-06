@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>まもりびと ― チビ勇者の防衛戦 第3版</title>
+<style>
+  :root{
+    --mint:#8ff0d0; --gold:#ffd76e; --ink:#241d3f; --paper:#f7f2e8;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#100d22;
+    font-family:"Meiryo UI",Meiryo,"Hiragino Kaku Gothic ProN",sans-serif;
+    color:var(--paper);overflow:hidden;user-select:none}
+  #stage{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #frame{position:relative;height:100%;aspect-ratio:480/720;max-width:100%;box-shadow:0 0 60px rgba(0,0,0,.6)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated}
+  .layer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:22px;text-align:center;background:rgba(16,13,34,.88);
+    visibility:hidden;opacity:0;pointer-events:none;contain:layout paint}
+  .layer.on{visibility:visible;opacity:1;pointer-events:auto}
+  h1{font-size:clamp(19px,4.4vh,28px);margin:0 0 4px;letter-spacing:.08em}
+  .sub{font-size:clamp(11px,1.8vh,13px);opacity:.75;margin-bottom:20px;line-height:1.75}
+  .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:356px}
+  .pick{background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.14);border-radius:14px;
+    padding:8px 6px 7px;width:106px;cursor:pointer;transition:.15s;color:inherit;font-family:inherit}
+  .pick:hover,.pick:focus-visible{border-color:var(--mint);background:rgba(143,240,208,.12);transform:translateY(-3px);outline:none}
+  .pick canvas{position:static;width:76px;height:78px;aspect-ratio:auto;image-rendering:pixelated}
+  .pick b{display:block;font-size:13px;margin-top:4px}
+  .pick span{display:block;font-size:9.5px;opacity:.7;margin-top:2px;line-height:1.4}
+  .modes{margin-top:18px;font-size:12px;opacity:.85}
+  .seg{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px;border:none;margin-top:8px;max-width:420px}
+  .seg button{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.18);border-radius:999px;
+    color:inherit;font-family:inherit;font-size:11.5px;padding:7px 13px;cursor:pointer}
+  .seg button.sel{background:var(--mint);color:var(--ink);font-weight:700;border-color:var(--mint)}
+  #diffInfo{font-size:11px;opacity:.7;margin-top:10px;line-height:1.7;min-height:34px}
+  #hiTitle{font-size:11.5px;opacity:.8;margin-top:12px;line-height:1.9}
+  #hiTitle b{color:var(--gold)}
+  .share{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .share button{border:none;border-radius:999px;padding:9px 18px;font-size:12px;font-weight:700;
+    font-family:inherit;cursor:pointer;color:#fff}
+  .sX{background:#111}
+  .sL{background:#06c755}
+  .sC{background:rgba(255,255,255,.16)}
+  #newRec{color:var(--gold);font-weight:700;font-size:13px;margin-top:6px;min-height:18px}
+  .cards{display:flex;gap:8px;flex-wrap:nowrap;justify-content:center;width:100%;max-width:470px}
+  .card{flex:1 1 0;min-width:0;max-width:152px;background:var(--paper);color:var(--ink);border-radius:14px;
+    padding:10px 8px;cursor:pointer;border:3px solid #ddd;transition:.12s;text-align:left;font-family:inherit}
+  .card:hover,.card:focus-visible{transform:translateY(-4px);outline:none;filter:brightness(1.04)}
+  .card .rr{font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;display:inline-block;color:#241d3f}
+  .card .nm{font-size:13px;font-weight:700;margin:6px 0 5px;line-height:1.35}
+  .card .ds{font-size:10px;line-height:1.55;opacity:.82}
+  .card .lv{font-size:10px;margin-top:6px;opacity:.6;font-weight:700}
+  .card .pr{margin-top:7px;font-size:12px;font-weight:700;border-top:1px dashed rgba(0,0,0,.18);padding-top:6px}
+  .card.poor{opacity:.42;cursor:not-allowed}
+  .card.poor:hover{transform:none}
+  .card.done{opacity:.32;cursor:default}
+  .card.done:hover{transform:none}
+  #wallet{font-size:14px;font-weight:700;color:var(--gold);margin-bottom:12px}
+  /* --- スキルの店：誤タップ対策 --- */
+  /* 下から18%はキャラの移動帯。ボタンはそこに重ねない */
+  #levelup{justify-content:flex-start;padding:clamp(14px,4vh,32px) 12px 0}
+  #shopGuide{font-size:10.5px;opacity:.5;line-height:1.7;margin-top:14px}
+  #closeShop{margin-top:clamp(14px,3.2vh,26px);padding:13px 26px;font-size:13px}
+  #shopSafe{flex:1 1 auto;min-height:18%;pointer-events:none}
+  /* 見た目は変えず、開いた直後の数百ミリ秒だけタップを受け付けない */
+  #levelup.lock #cards,#levelup.lock #closeShop{pointer-events:none}
+  .btn{margin-top:18px;background:var(--mint);color:var(--ink);border:none;border-radius:999px;
+    padding:12px 30px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+  .btn.ghost{background:none;border:1.5px solid rgba(255,255,255,.25);color:var(--paper);margin-left:8px}
+  .stat{font-size:12.5px;line-height:2;opacity:.9}
+  .stat b{color:var(--gold);font-size:15px}
+  #hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:10.5px;opacity:.45;line-height:1.7}
+  @media (prefers-reduced-motion:reduce){.pick,.card{transition:none}}
+</style>
+</head>
+<body>
+<div id="stage"><div id="frame">
+  <canvas id="cv"></canvas>
+
+  <div class="layer on" id="title">
+    <h1>まもりびと</h1>
+    <div class="sub">5つの列を行き来して、落ちてくる魔物を撃ちおとしてください。<br>盾が割れた列を抜かれたら負け。決められた数の魔物を たおしきれば勝ちです。</div>
+    <div class="row">
+      <button class="pick" data-c="milly"><canvas class="pv" width="76" height="78"></canvas><b>ミリィ</b><span>つえ／ふつう</span></button>
+      <button class="pick" data-c="noa"><canvas class="pv" width="76" height="78"></canvas><b>ノア</b><span>たんけん／はやい</span></button>
+      <button class="pick" data-c="sumire"><canvas class="pv" width="76" height="78"></canvas><b>スミレ</b><span>たんけん／はやい</span></button>
+      <button class="pick" data-c="kuroha"><canvas class="pv" width="76" height="78"></canvas><b>クロハ</b><span>けん／おもい</span></button>
+      <button class="pick" data-c="shirayuki"><canvas class="pv" width="76" height="78"></canvas><b>シラユキ</b><span>つえ／ふつう</span></button>
+      <button class="pick" data-c="rin"><canvas class="pv" width="76" height="78"></canvas><b>リン</b><span>けん／おもい</span></button>
+    </div>
+    <div class="modes">
+      むずかしさ
+      <div class="seg" id="seg">
+        <button data-m="normal" class="sel">ノーマル</button>
+        <button data-m="hard">ハード</button>
+        <button data-m="nightmare">ナイトメア</button>
+        <button data-m="infinity">インフィニティ</button>
+      </div>
+      <div id="diffInfo"></div>
+      <div id="hiTitle"></div>
+    </div>
+    <div id="hint">←→ キーまたは画面タップで列を移動　／　弾は自動<br>敵をたおすとコイン。レベルアップと珠の取得で店がひらきます<br><span style="opacity:.5">build v7g　／　<a href="lessons.html" style="color:#8ff0d0">つくりかたを学ぶ</a></span></div>
+  </div>
+
+  <div class="layer" id="levelup">
+    <h1 style="font-size:20px" id="shopTtl">スキルの店</h1>
+    <div class="sub" id="luSub"></div>
+    <div id="wallet"></div>
+    <div class="cards" id="cards"></div>
+    <div id="shopGuide">カードをタップで購入　／　キー 1・2・3 でも買えます</div>
+    <button class="btn" id="closeShop">店を出る（コインは持ちこし）</button>
+    <div id="shopSafe"></div>
+  </div>
+
+  <div class="layer" id="over">
+    <h1 id="overTtl">村が やぶられました</h1>
+    <div class="sub" id="overSub"></div>
+    <div class="stat" id="result"></div>
+    <div id="newRec"></div>
+    <div class="share">
+      <button class="sX" id="shX">Xで共有</button>
+      <button class="sL" id="shL">LINEで共有</button>
+      <button class="sC" id="shC">結果をコピー</button>
+    </div>
+    <div>
+      <button class="btn" id="again">もう一度</button>
+      <button class="btn ghost" id="back">キャラ選択へ</button>
+    </div>
+  </div>
+
+  <div class="layer" id="paused">
+    <h1 style="font-size:20px">一時停止</h1>
+    <div class="sub">P キー、または画面タップで再開します</div>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+/* =========================================================
+   まもりびと 第2版
+   ・5列レーン移動　・初期配置の盾　・落下スキル　・レア度
+   単一HTMLファイル / 外部通信なし / 保存機能なし
+   ========================================================= */
+const W=480,H=720,LANES=5,LW=W/LANES,GROUND=H-118,SHY=GROUND-18,PY=H-62;
+const PRICE=[15,40,110,260];          /* ふつう / レア / 超レア / でんせつ */
+const DIFF={
+ normal   :{nm:"ノーマル",      smax:1,sp:1.00,fq:1.00,hp:1.00,goal:100,mul:1.5,
+            ds:"盾の耐久 1　魔物を 100体 たおせば勝ちです。"},
+ hard     :{nm:"ハード",        smax:0,sp:1.10,fq:1.15,hp:1.10,goal:120,mul:2.2,
+            ds:"盾なし　120体。1体でも抜かれたら終わりです。"},
+ nightmare:{nm:"ナイトメア",    smax:0,sp:1.28,fq:1.40,hp:1.40,goal:150,mul:3.2,
+            ds:"盾なし　150体。敵が速く、硬く、数も多い。"},
+ infinity :{nm:"インフィニティ",smax:0,sp:1.28,fq:1.45,hp:1.45,goal:Infinity,mul:4.0,
+            ds:"盾なし・終わりなし　倒れるまで敵は強くなり続けます。"}
+};
+/* ---------- ハイスコアの保存 ---------- */
+const HIKEY="mamoribito_hi_v1";
+let saveOK=true;
+const HI=(function(){
+  try{ const j=localStorage.getItem(HIKEY); if(j) return JSON.parse(j)||{}; }
+  catch(e){ saveOK=false; }
+  return {};
+})();
+function saveHi(){
+  try{ localStorage.setItem(HIKEY,JSON.stringify(HI)); }
+  catch(e){ saveOK=false; }
+}
+function clearHi(){
+  for(const k in HI) delete HI[k];
+  try{ localStorage.removeItem(HIKEY); }catch(e){}
+  refreshHi();
+}
+const laneX=i=>LW/2+i*LW;
+const laneOf=x=>clamp(Math.round((x-LW/2)/LW),0,LANES-1);
+const inLanes=(e,l)=>{                    /* 敵がまたいでいる列に l が含まれるか */
+  if((e.span||1)<2)return laneOf(e.x)===l;
+  const a=clamp(Math.round((e.x-LW)/LW),0,LANES-2);
+  return l===a||l===a+1;
+};
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+cv.width=W;cv.height=H;
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=n=>Math.floor(Math.random()*n);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+/* ---------- レア度 ---------- */
+const RAR=[
+ {n:"ふつう",  c:"#b9c2d4", w:56},
+ {n:"レア",    c:"#6cc0ff", w:30},
+ {n:"超レア",  c:"#c093ff", w:11},
+ {n:"でんせつ",c:"#ffcf5c", w:3}
+];
+
+/* ---------- スキル ---------- */
+const SKILLS=[
+ {id:"rate", r:0,nm:"はやうち",    max:5,ds:"攻撃の間隔-12%、弾も少し速く",  ap:p=>{p.rate*=0.88;p.bspd+=55}},
+ {id:"pow",  r:0,nm:"ちからこぶ",  max:8,ds:"弾の威力が+2されます",          ap:p=>p.dmg+=2},
+ {id:"big",  r:0,nm:"おおだま",    max:3,ds:"弾が大きくなり、威力+1",        ap:p=>{p.size*=1.25;p.dmg+=1}},
+ {id:"dash", r:0,nm:"すりあし",    max:3,ds:"列の移動が25%速くなります",     ap:p=>p.move*=0.75},
+ {id:"exp",  r:0,nm:"まなびの心",  max:3,ds:"獲得経験値が+25%されます",      ap:p=>p.expr+=0.25},
+ {id:"pierce",r:1,nm:"つらぬき",   max:2,ds:"弾が1体多く貫通（2体目以降は威力減）",ap:p=>p.pierce+=1},
+ {id:"crit", r:1,nm:"きゅうしょ",  max:4,ds:"会心率+10%（威力2倍）",         ap:p=>p.crit+=0.10},
+ {id:"magic",r:1,nm:"ついび魔法",  max:2,ds:"敵を追いかける魔法弾が+1（貫通なし）",ap:p=>p.magic+=1},
+ {id:"fam",  r:1,nm:"ようせい",    max:3,ds:"まわりを回る妖精が+1",          ap:p=>p.fam+=1},
+ {id:"slow", r:1,nm:"ねばりの霧",  max:3,ds:"盾の手前で敵が遅くなります",    ap:p=>p.slow+=0.18},
+ {id:"bomb", r:2,nm:"ばくれつ弾",  max:3,ds:"ときどき、広範囲で爆発する弾",  ap:p=>p.bomb+=1},
+ {id:"fix",  r:2,nm:"たてなおし",  max:3,ds:"盾を全回復し、盾の最大値+1",    ap:(p,g)=>{p.smax+=1;g.sh.forEach(s=>s.hp=p.smax)}},
+ {id:"ward", r:2,nm:"まもりの結界",max:3,ds:"突破を1回だけ肩代わりします",   ap:p=>p.ward+=1},
+ {id:"clone",r:3,nm:"おうえん",    max:2,ds:"なかまが1人 かけつけます（最大2人）",ap:p=>p.clone+=1},
+ {id:"thnd", r:3,nm:"天のいかずち",max:2,ds:"ときどき、雷が列ごと敵を貫きます",ap:p=>p.thnd+=1},
+ {id:"haste",r:3,nm:"ときのはやさ",max:1,ds:"攻撃間隔-35%、移動も速くなります",ap:p=>{p.rate*=0.65;p.move*=0.6}},
+ {id:"pure", r:3,nm:"ときのしずく",max:1,ds:"しびれ・よわ体を受けなくなります",  ap:p=>p.pure=1},
+ {id:"spread",r:3,nm:"みっつの矢", max:2,ds:"通常弾が となりの列にも飛びます",   ap:p=>p.spread+=1},
+ {id:"mirror",r:3,nm:"ふしぎな鏡", max:1,ds:"会心率+25%（威力2倍）",            ap:p=>p.crit+=0.25},
+ {id:"aegis",r:3,nm:"おおいなる盾",max:1,ds:"盾の最大値+2で全回復、突破も1回肩代わり",
+  ap:(p,g)=>{p.smax+=2;p.ward+=1;g.sh.forEach(s=>s.hp=p.smax)}}
+];
+
+/* ---------- 敵 ---------- */
+const ENEMIES={
+ slime :{hp:3,  sp:32, r:12, hh:13, ex:3,  col:"#a98ae8",sub:"#6b4fae",gait:"hop"},
+ bone  :{hp:4,  sp:42, r:15, hh:20, ex:5,  col:"#c8c4cf",sub:"#5c5866",gait:"walk"},
+ witch :{hp:8,  sp:46, r:19, hh:25, ex:9,  col:"#b07cff",sub:"#4a2f77",gait:"walk"},
+ knight:{hp:16, sp:20, r:24, hh:29, ex:15, col:"#d4a24a",sub:"#3a2f2a",gait:"walk",
+         atk:"curse",cd:3.6, dark:true},
+ queen :{hp:110,sp:13, r:32, hh:35, ex:95, col:"#c9a2ff",sub:"#3b2e5c",gait:"float",
+         atk:"hex",  cd:2.2, span:2, dark:true}
+};
+
+let G=null, mode="normal", stars=[];
+for(let i=0;i<70;i++)stars.push({x:rnd(0,W),y:rnd(0,GROUND),r:rnd(.5,1.6),a:rnd(.2,.9),t:rnd(0,6)});
+
+/* ---------- 入力 ---------- */
+const keys={};
+addEventListener("keydown",e=>{
+  if(!e.repeat)keys[e.key]=true;
+  if(G&&G.state==="levelup"){
+    if("123".includes(e.key))buyCard(+e.key-1);
+    if(e.key==="Enter"||e.key==="Escape"||e.key===" ")closeShop();
+  }
+  if(e.key==="p"||e.key==="P")togglePause();
+  if([" ","ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key))e.preventDefault();
+});
+addEventListener("keyup",e=>keys[e.key]=false);
+cv.addEventListener("pointerdown",e=>{
+  if(performance.now()<tapLock)return;
+  if(G&&G.state==="pause"){togglePause();return}
+  if(!G||G.state!=="play")return;
+  const r=cv.getBoundingClientRect();
+  G.p.lane=clamp(Math.floor((e.clientX-r.left)/r.width*LANES),0,LANES-1);
+});
+
+/* ---------- 開始 ---------- */
+function newGame(type){
+  const D=DIFF[mode],smax=D.smax,C=CHARS[type]||CHARS.milly;
+  G={
+    type,state:"play",t:0,score:0,kills:0,spawned:0,breach:0,D,
+    mate:Object.keys(CHARS).filter(k=>k!==type).sort(()=>Math.random()-0.5).slice(0,2),
+    en:[],bl:[],eb:[],it:[],pt:[],tx:[],bm:[],beam:[],
+    sh:[...Array(LANES)].map(()=>({hp:smax})),
+    spawn:1.2,itemT:8,lv:1,exp:0,need:7,shopQ:[],taken:{},toast:null,money:0,
+    p:{lane:2,x:laneX(2),y:PY,move:0.10,mt:0,face:1,
+       rate:C.rate,ct:0,dmg:C.dmg,bspd:290,pierce:0,magic:0,crit:0,fam:0,size:1,
+       slow:0,ward:0,expr:1,bomb:0,bombT:0,thnd:0,thndT:0,clone:0,smax,famAng:0,famCt:0,
+       stun:0,weak:0,pure:0,spread:0}
+  };
+  ["title","over","levelup","paused"].forEach(i=>$(i).classList.remove("on"));
+}
+function togglePause(){
+  if(!G)return;
+  if(G.state==="play"){G.state="pause";$("paused").classList.add("on")}
+  else if(G.state==="pause"){G.state="play";$("paused").classList.remove("on")}
+}
+
+/* ---------- スキル抽選 ---------- */
+function rollRarity(bonus){
+  const w=RAR.map((r,i)=>r.w*(i===0?1:1+bonus*i*0.28));
+  let s=w.reduce((a,b)=>a+b,0)*Math.random();
+  for(let i=0;i<w.length;i++){if((s-=w[i])<=0)return i}
+  return 0;
+}
+function pickSkill(rar){
+  let pool=SKILLS.filter(s=>s.r===rar&&(G.taken[s.id]||0)<s.max);
+  let d=rar;
+  while(!pool.length&&d>=0){d--;pool=SKILLS.filter(s=>s.r===d&&(G.taken[s.id]||0)<s.max)}
+  if(!pool.length)pool=SKILLS.filter(s=>(G.taken[s.id]||0)<s.max);
+  return pool.length?pool[ri(pool.length)]:null;
+}
+function grant(s){
+  if(!s)return;
+  G.taken[s.id]=(G.taken[s.id]||0)+1;
+  s.ap(G.p,G);
+  toast(s.nm+"（"+RAR[s.r].n+"）を おぼえた",RAR[s.r].c);
+}
+function toast(text,c){G.toast={text,c,l:2.0}}
+
+/* ---------- レベルアップ ---------- */
+let offer=[];
+function levelUp(){
+  G.lv++;G.exp-=G.need;G.need=Math.round(6+G.lv*4+G.lv*G.lv*0.3);
+  if(G.lv>=10&&G.lv%5===0)requestShop("レベル "+G.lv+" ／ でんせつ 確定！",3,"確定");
+  else requestShop("レベル "+G.lv+" に なりました");
+}
+/* 店の予約：重なっても取りこぼさないよう順番待ちにする */
+function requestShop(head,rar,tag){
+  G.shopQ.push({head,rar,tag});
+  if(G.state==="play")openNext();
+}
+function openNext(){
+  while(G.shopQ.length){
+    const q=G.shopQ.shift();
+    if(openShop(q.head,q.rar,q.tag))return true;
+  }
+  G.state="play";return false;
+}
+function priceOf(s){
+  const owned=G.taken[s.id]||0;
+  return Math.round(PRICE[s.r]*(1+owned*0.5));
+}
+function costOf(o){return o.sale?Math.round(priceOf(o.s)*0.5):priceOf(o.s)}
+let shopLockT=0,tapLock=0;
+function openShop(head,forceRar,tag){
+  offer=[];
+  const used=new Set();
+  for(let i=0;i<3;i++){
+    let s=null;
+    const want=(i===0&&forceRar!==undefined)?forceRar:rollRarity(G.lv/8);
+    for(let w=want;w>=0&&!s;w--){                 /* その希少度が品切れなら下へ落とす */
+      let tryn=0;
+      while(tryn++<14){const c=pickSkill(w);if(c&&!used.has(c.id)){s=c;break}}
+    }
+    if(s){
+      used.add(s.id);
+      const tg=(i===0&&tag&&s.r===want)?tag:"";   /* 落ちたときは「確定」と出さない */
+      offer.push({s,bought:false,sale:false,tag:tg});
+    }
+  }
+  if(!offer.length)return false;
+  if(Math.random()<0.45){                       /* 45%の確率で1枠が半額 */
+    const i=ri(offer.length);
+    if(!offer[i].tag){offer[i].sale=true;offer[i].tag="半額"}
+  }
+  G.state="levelup";
+  $("shopTtl").textContent="スキルの店";
+  $("luSub").textContent=head+" ／ いくつでも買えます";
+  renderShop();
+  const lu=$("levelup");
+  lu.classList.add("on");lu.classList.add("lock");
+  clearTimeout(shopLockT);shopLockT=setTimeout(()=>lu.classList.remove("lock"),300);
+  return true;
+}
+function renderShop(){
+  $("wallet").textContent="もちきん "+G.money+" コイン";
+  $("cards").innerHTML=offer.map((o,i)=>{
+    const s=o.s,cur=G.taken[s.id]||0,R=RAR[s.r],pr=costOf(o);
+    const cls=o.bought?"card done":(G.money<pr?"card poor":"card");
+    const tag=o.tag?` <span class="rr" style="background:#ff9ec0">${o.tag}</span>`:"";
+    const pt=o.bought?"買いました":(o.sale?"<s style='opacity:.5'>"+priceOf(s)+"</s> "+pr+" コイン":pr+" コイン");
+    return `<button class="${cls}" data-i="${i}" style="border-color:${R.c}">
+      <span class="rr" style="background:${R.c}">${R.n}</span>${tag}
+      <div class="nm">${s.nm}</div><div class="ds">${s.ds}</div>
+      <div class="lv">${cur?"Lv."+cur+" → Lv."+(cur+1):"あたらしく おぼえる"}</div>
+      <div class="pr">${pt}</div></button>`;
+  }).join("");
+  [...$("cards").children].forEach(b=>b.onclick=()=>buyCard(+b.dataset.i));
+}
+function buyCard(i){
+  if(G.state!=="levelup"||!offer[i]||offer[i].bought)return;
+  const o=offer[i],pr=costOf(o);
+  if(G.money<pr){toast("コインが たりません","#ff9a9a");return}
+  G.money-=pr;o.bought=true;
+  grant(o.s);
+  renderShop();
+}
+function closeShop(){
+  if(G.state!=="levelup")return;
+  tapLock=performance.now()+300;
+  $("levelup").classList.remove("on");$("levelup").classList.remove("lock");
+  openNext();
+}
+
+/* ---------- 出現 ---------- */
+function spawn(){
+  const t=G.t,D=G.D;
+  const d=(1+Math.max(0,t-12)/34)*D.hp;      /* 12秒までは素の硬さ＝一撃 */
+  let bag=["slime","slime"];
+  if(t>10)bag.push("bone");
+  if(t>22)bag.push("witch");
+  if(t>34)bag.push("bone","witch");
+  if(t>46)bag.push("witch");
+  if(isFinite(D.goal)&&G.spawned===D.goal-1){
+    push("queen",ri(LANES),d*0.9);
+    G.tx.push({x:W/2,y:GROUND-180,v:"堕天使の女王 が あらわれた",l:2.2,cr:true});
+    G.spawn=9;return;
+  }
+  const n=G.spawned+1;                      /* これから出す個体の番号 */
+  if(!isFinite(D.goal)&&(n<=1000?(n>=50&&n%50===0):(n%100===0))){
+    push("queen",ri(LANES),d*0.85);
+    G.tx.push({x:W/2,y:GROUND-200,v:"堕天使の女王 が あらわれた",l:2.2,cr:true});
+    G.spawn=6;return;
+  }
+  if(n>=40&&n%10===0){
+    push("knight",ri(LANES),d);
+    G.tx.push({x:W/2,y:GROUND-200,v:"暗黒騎士 が あらわれた",l:1.6,cr:true});
+    G.spawn=1.8;return;
+  }
+  push(bag[ri(bag.length)],ri(LANES),d);
+  G.spawn=Math.max(0.30/D.fq,(1.25-t/55)/D.fq);
+}
+function push(k,lane,d){
+  if(G.spawned>=G.D.goal)return;
+  G.spawned++;
+  const b=ENEMIES[k];
+  const sp2=b.span===2;
+  if(sp2)lane=clamp(lane,0,LANES-2);
+  const px=sp2?laneX(lane)+LW/2:laneX(lane);
+  G.en.push({k,lane,span:b.span||1,x:px,y:-40,r:b.r,hp:b.hp*d,max:b.hp*d,
+             sp:b.sp*(0.9+d*0.1)*G.D.sp,ex:b.ex,ph:rnd(0,6),hit:0,swap:rnd(1.5,3.5),home:px,
+             ct:b.atk?rnd(0.4,b.cd*0.7):0,alt:false});
+}
+function spawnItem(){
+  const r=Math.random();
+  const kind=r<0.55?"skill":r<0.80?"fix":"bomb";
+  const rar=kind==="skill"?rollRarity(G.lv/7):0;
+  G.it.push({kind,rar,lane:ri(LANES),x:0,y:-24,ph:rnd(0,6)});
+  G.it[G.it.length-1].x=laneX(G.it[G.it.length-1].lane);
+  G.itemT=rnd(9,13);
+}
+
+/* ---------- 更新 ---------- */
+function update(dt){
+  const p=G.p;G.t+=dt;
+  if(isFinite(G.D.goal)&&G.spawned>=G.D.goal&&G.en.length===0){finish(true);return}
+
+  /* 列移動 */
+  p.mt-=dt;
+  if(p.mt<=0){
+    let d=0;
+    if(keys.ArrowLeft||keys.a||keys.A)d--;
+    if(keys.ArrowRight||keys.d||keys.D)d++;
+    if(d){p.lane=clamp(p.lane+d,0,LANES-1);p.mt=p.move;p.face=d}
+  }
+  const tx=laneX(p.lane);
+  p.x+=(tx-p.x)*Math.min(1,dt/Math.max(0.02,p.move*0.9));
+
+  /* 状態異常 */
+  p.stun=Math.max(0,p.stun-dt);
+  p.weak=Math.max(0,p.weak-dt);
+  const wk=p.weak>0?0.6:1;
+
+  /* 通常攻撃 */
+  p.ct-=dt;
+  if(p.ct<=0&&p.stun<=0){
+    p.ct=p.rate;
+    shot(p.x,p.dmg*wk,1);
+    for(let k=1;k<=p.spread;k++){
+      for(const sgn of [-1,1]){
+        const l=p.lane+sgn*k;
+        if(l>=0&&l<LANES)shot(laneX(l),p.dmg*0.55*wk,0.8);
+      }
+    }
+    for(const l of cloneLanes())
+      shot(laneX(l),Math.max(1,Math.round(p.dmg*0.6*wk)),0.85);
+    for(let i=0;i<p.magic;i++)
+      G.bl.push({x:p.x+(i%2?14:-14),y:p.y-20,vx:rnd(-70,70),vy:-240,
+                 d:(p.dmg*0.8+1)*wk,pi:0,r:7*p.size,hit:[],type:"magic",life:2.4});
+  }
+  /* ばくれつ弾 */
+  if(p.bomb>0){
+    p.bombT-=dt;
+    if(p.bombT<=0){p.bombT=3.6/p.bomb;
+      G.bl.push({x:p.x,y:p.y-26,vx:0,vy:-330,d:p.dmg*2,pi:0,r:9,hit:[],type:"bomb"});}
+  }
+  /* 天のいかずち */
+  if(p.thnd>0){
+    p.thndT-=dt;
+    if(p.thndT<=0){
+      p.thndT=5.0/p.thnd;
+      const cnt=Math.min(LANES,1+p.thnd);
+      const ls=[...Array(LANES).keys()].sort((a,b)=>
+        G.en.filter(e=>Math.abs(e.x-laneX(b))<LW/2).length-
+        G.en.filter(e=>Math.abs(e.x-laneX(a))<LW/2).length).slice(0,cnt);
+      for(const l of ls){
+        G.beam.push({l,life:0.28});
+        for(const e of G.en)
+          if(!e.dead&&Math.abs(e.x-laneX(l))<LW/2+e.r*0.4)damage(e,p.dmg*4,true);
+      }
+    }
+  }
+
+  p.famAng+=dt*2.4;p.famCt-=dt;
+
+  /* 出現 */
+  if(G.spawned<G.D.goal){G.spawn-=dt;if(G.spawn<=0)spawn()}
+  G.itemT-=dt;if(G.itemT<=0)spawnItem();
+
+  /* 敵 */
+  for(const e of G.en){
+    let sp=e.sp;
+    if(p.slow&&e.y>SHY-190)sp*=Math.max(0.25,1-p.slow);
+    e.y+=sp*dt;e.ph+=dt;e.hit=Math.max(0,e.hit-dt*6);
+    if(e.k==="bone"||e.k==="witch"){
+      e.swap-=dt;
+      if(e.swap<=0){e.swap=rnd(1.8,3.6);
+        const n=clamp(e.lane+(Math.random()<.5?-1:1),0,LANES-1);e.lane=n}
+      e.x+=(laneX(e.lane)-e.x)*Math.min(1,dt*2.2);
+    }
+    const eb=ENEMIES[e.k];
+    if(eb.atk&&e.y>20&&e.y<SHY-30){
+      e.ct-=dt;
+      if(e.ct<=0){e.ct=eb.cd;
+        let kd=eb.atk,bx=e.x;
+        if(e.k==="knight"){e.alt=!e.alt;kd=e.alt?"hex":"curse"}
+        if((e.span||1)>1){e.alt=!e.alt;bx=e.x+(e.alt?-LW/2:LW/2)}
+        G.eb.push({x:bx,y:e.y+eb.hh*0.5,vy:105,k:kd,r:7,ph:0});}
+    }
+    if(e.y+e.r>=SHY)hitWall(e);
+  }
+
+  /* 弾 */
+  for(const b of G.bl){
+    if(b.type==="magic"){
+      b.life-=dt;
+      let tg=null,best=1e9;
+      const bl=laneOf(b.x);
+      for(const e of G.en){
+        if(e.dead)continue;
+        if(Math.abs(laneOf(e.x)-bl)>1&&!inLanes(e,bl))continue;   /* 隣の列までしか追わない */
+        const d=(e.x-b.x)**2+(e.y-b.y)**2;if(d<best){best=d;tg=e}
+      }
+      if(tg){const a=Math.atan2(tg.y-b.y,tg.x-b.x),s=290;
+        b.vx+=(Math.cos(a)*s-b.vx)*Math.min(1,dt*3.2);
+        b.vy+=(Math.sin(a)*s-b.vy)*Math.min(1,dt*3.2);}
+      if(b.life<=0)b.dead=true;
+    }
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+    if(b.y<-40||b.x<-40||b.x>W+40){if(b.type==="bomb")explode(b.x,Math.max(40,b.y),b.d);b.dead=true}
+    for(const e of G.en){
+      if(e.dead||b.dead||b.hit.includes(e))continue;
+      const rr=e.r+b.r;
+      const hit=(b.type==="shot")
+        ? (Math.abs(e.y-b.y)<rr&&inLanes(e,laneOf(b.x)))      /* またいでいる列なら当たる */
+        : ((e.x-b.x)**2+(e.y-b.y)**2<rr*rr);
+      if(hit){
+        if(b.type==="bomb"){explode(b.x,b.y,b.d);b.dead=true;break}
+        b.hit.push(e);
+        const cr=Math.random()<p.crit;
+        const fall=Math.pow(0.65,b.hit.length-1);          /* 2体目以降は威力が落ちる */
+        damage(e,(cr?b.d*2:b.d)*fall,cr);
+        if(b.hit.length>b.pi)b.dead=true;
+      }
+    }
+  }
+  /* 敵の弾 */
+  for(const b of G.eb){
+    b.y+=b.vy*dt;b.ph+=dt;
+    if(b.y>H+20)b.dead=true;
+    if(!b.dead&&b.k==="hex"&&b.y>=SHY-2){
+      const ln=clamp(Math.round((b.x-LW/2)/LW),0,LANES-1),sd=G.sh[ln];
+      if(sd.hp>0){
+        sd.hp=Math.max(0,sd.hp-1);b.dead=true;
+        burst(b.x,SHY,12,"#c9a2ff");
+        G.tx.push({x:laneX(ln),y:SHY-14,v:sd.hp>0?"盾がけずれた":"盾がわれた",l:.9,cr:sd.hp<=0});
+      }
+    }
+    if(!b.dead&&Math.abs(b.x-p.x)<20&&Math.abs(b.y-(p.y-6))<26){
+      b.dead=true;burst(p.x,p.y-16,14,b.k==="hex"?"#c9a2ff":"#ff8a8a");
+      if(p.pure){G.tx.push({x:p.x,y:p.y-50,v:"はじいた！",l:.9,cr:false});}
+      else if(b.k==="hex"){p.stun=Math.max(p.stun,1.2);
+        G.tx.push({x:p.x,y:p.y-50,v:"しびれた！",l:1.1,cr:true});}
+      else{p.weak=Math.max(p.weak,4.0);
+        G.tx.push({x:p.x,y:p.y-50,v:"よわ体！",l:1.1,cr:true});}
+    }
+  }
+
+  /* 爆風 */
+  for(const q of G.bm){q.l-=dt;if(q.l<=0)q.dead=true}
+  for(const q of G.beam){q.life-=dt;if(q.life<=0)q.dead=true}
+
+  /* 妖精 */
+  if(p.fam&&p.famCt<=0){
+    p.famCt=0.35;
+    for(let i=0;i<p.fam;i++){
+      const a=p.famAng+i*Math.PI*2/p.fam,fx=p.x+Math.cos(a)*54,fy=p.y-16+Math.sin(a)*32;
+      for(const e of G.en){
+        if(e.dead)continue;
+        const rr=e.r+11;
+        if((e.x-fx)**2+(e.y-fy)**2<rr*rr)damage(e,Math.max(1,Math.round(p.dmg*0.7)),false);
+      }
+    }
+  }
+
+  /* アイテム */
+  for(const o of G.it){
+    o.y+=105*dt;o.ph+=dt;
+    if(Math.abs(o.x-p.x)<26&&Math.abs(o.y-(p.y-14))<30){o.dead=true;takeItem(o)}
+    else if(o.y>SHY+10){o.dead=true;burst(o.x,SHY,6,"#8899aa")}
+  }
+
+  for(const q of G.pt){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=380*dt;q.l-=dt;if(q.l<=0)q.dead=true}
+  for(const q of G.tx){q.y-=34*dt;q.l-=dt;if(q.l<=0)q.dead=true}
+  if(G.toast){G.toast.l-=dt;if(G.toast.l<=0)G.toast=null}
+
+  G.en=G.en.filter(e=>!e.dead);G.bl=G.bl.filter(b=>!b.dead);G.eb=G.eb.filter(b=>!b.dead);
+  G.it=G.it.filter(o=>!o.dead);G.pt=G.pt.filter(q=>!q.dead);
+  G.tx=G.tx.filter(q=>!q.dead);G.bm=G.bm.filter(q=>!q.dead);
+  G.beam=G.beam.filter(q=>!q.dead);
+
+  while(G.exp>=G.need)levelUp();
+}
+
+/* 分身の立つ列（1体目は左、2体目は右。画面外なら反対側へ） */
+function cloneLanes(){
+  const p=G.p,out=[];
+  for(let i=0;i<p.clone;i++){
+    const s=i===0?-1:1;
+    let l=p.lane+s;
+    if(l<0||l>=LANES)l=p.lane-s*(out.includes(p.lane-s)?2:1);
+    if(l>=0&&l<LANES&&l!==p.lane&&!out.includes(l))out.push(l);
+  }
+  return out;
+}
+function shot(x,d,sz){
+  const p=G.p;
+  G.bl.push({x,y:p.y-26,vx:0,vy:-p.bspd,d,pi:p.pierce,r:5*p.size*sz,hit:[],type:"shot"});
+}
+function explode(x,y,d){
+  G.bm.push({x,y,l:0.32,r:96});
+  for(const e of G.en){
+    if(e.dead)continue;
+    if((e.x-x)**2+(e.y-y)**2<(96+e.r)**2)damage(e,d,true);
+  }
+  burst(x,y,26,"#ffc27a");
+}
+function takeItem(o){
+  const p=G.p;
+  if(o.kind==="skill"){
+    burst(o.x,o.y,20,RAR[o.rar].c);
+    G.money+=20;
+    requestShop("行商人が あらわれた（コイン+20）",o.rar,"おすすめ");
+  }
+  else if(o.kind==="fix"){G.sh.forEach(s=>s.hp=Math.min(p.smax,s.hp+2));
+    toast("盾を しゅうりした",'#8ff0d0');burst(o.x,o.y,18,"#8ff0d0")}
+  else{for(const e of G.en)if(!e.dead)damage(e,26+G.lv*4,true);
+    G.bm.push({x:W/2,y:H*0.42,l:0.4,r:300});toast("ボム さくれつ",'#ffb36b')}
+}
+function damage(e,d,cr){
+  e.hp-=d;e.hit=1;
+  G.tx.push({x:e.x+rnd(-6,6),y:e.y-e.r,v:d,l:.55,cr});
+  burst(e.x,e.y,cr?6:3,ENEMIES[e.k].col);
+  if(e.hp<=0){
+    e.dead=true;G.kills++;G.score+=Math.round(e.ex*10);G.exp+=e.ex*G.p.expr;
+    G.money+=Math.round(e.ex*1.6);
+    burst(e.x,e.y,14,ENEMIES[e.k].col);
+    if(e.k==="knight")                       /* 暗黒騎士は でんせつ確定の店を落とす */
+      requestShop("暗黒騎士を たおした ／ でんせつ 確定！",3,"確定");
+  }
+}
+function burst(x,y,n,c){
+  for(let i=0;i<n;i++)G.pt.push({x,y,vx:rnd(-130,130),vy:rnd(-190,40),l:rnd(.25,.6),c,r:rnd(1.5,3.6)});
+}
+function hitWall(e){
+  const p=G.p,lane=clamp(Math.round((e.x-LW/2)/LW),0,LANES-1),s=G.sh[lane];
+  e.dead=true;
+  if(s.hp>0){
+    s.hp-=(e.k==="queen"?3:1);
+    if(s.hp<0)s.hp=0;
+    burst(e.x,SHY,18,"#d8c39a");
+    G.tx.push({x:laneX(lane),y:SHY-14,v:s.hp>0?"盾":"盾がわれた",l:.9,cr:s.hp<=0});
+    return;
+  }
+  if(p.ward>0){p.ward--;burst(e.x,SHY,24,"#8ff0d0");
+    G.tx.push({x:e.x,y:SHY-20,v:"結界",l:.9,cr:true});return}
+  G.breach++;burst(e.x,GROUND,28,"#ff8a8a");
+  if(G.breach>=1)gameOver();
+}
+function finish(win){
+  G.state="over";
+  const D=G.D,shields=G.sh.reduce((a,s)=>a+s.hp,0);
+  let bonus=0;
+  if(win){
+    bonus=shields*120+G.money+Math.max(0,Math.round((120-G.t)*15));  /* 早く倒しきるほど加点 */
+    G.score+=bonus;
+  }
+  if(mode==="infinity")G.score+=Math.round(G.t*15);
+  G.score=Math.round(G.score*D.mul);
+  $("overTtl").textContent=win?"村を まもりきりました":"村が やぶられました";
+  $("overSub").textContent=(mode==="infinity")
+    ?D.nm+"　生きのびた時間 "+G.t.toFixed(1)+" 秒"
+    :(win?D.nm+"　"+D.goal+"体 たおしきりました（"+G.t.toFixed(1)+" 秒・のこった盾 "+shields+"）"
+        :D.nm+"　のこり "+(Math.max(0,D.goal-G.spawned)+G.en.length)+" 体のところで やぶられました");
+  $("result").innerHTML="とうたつレベル <b>"+G.lv+"</b><br>たおした数 <b>"+G.kills+"</b>"+
+    (isFinite(D.goal)?" / "+D.goal:"")+"<br>スコア <b>"+G.score+"</b>";
+  const prev=HI[mode]||0;
+  if(G.score>prev){HI[mode]=G.score;saveHi();$("newRec").textContent="★ ハイスコア こうしん！（これまで "+prev+"）"}
+  else $("newRec").textContent="ハイスコア "+prev;
+  $("over").classList.add("on");
+  refreshHi();
+}
+function gameOver(){finish(false)}
+
+/* ---------- 共有 ---------- */
+function shareText(){
+  const D=G.D;
+  return "「まもりびと」"+D.nm+" で スコア "+G.score+
+    "（Lv"+G.lv+"・"+G.kills+"体撃破・"+G.t.toFixed(1)+"秒）を出しました！ #まもりびと";
+}
+function openShare(url){
+  const w=window.open(url,"_blank","noopener,noreferrer");
+  if(!w)copyResult("ポップアップがひらけません。文面をコピーしました");
+}
+function copyResult(msg){
+  const s=shareText();
+  const done=()=>{$("newRec").textContent=msg||"文面をコピーしました"};
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(s).then(done,()=>fallback());
+  else fallback();
+  function fallback(){
+    const ta=document.createElement("textarea");
+    ta.value=s;document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");done()}catch(e){$("newRec").textContent=s}
+    document.body.removeChild(ta);
+  }
+}
+function refreshHi(){
+  const h=HI[mode]||0;
+  $("hiTitle").innerHTML="ハイスコア（"+DIFF[mode].nm+"）　<b>"+h+"</b>"+
+    (h?"":"　まだ記録がありません")+
+    "<br><span style='opacity:.6'>"+
+    (saveOK ? "この端末に保存されます　<button id='hiClear' style=\"font:inherit;font-size:11px;padding:2px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:transparent;color:inherit;cursor:pointer\">記録を消す</button>"
+            : "このひらき方では保存できません（ファイルを端末に保存して Chrome で開いてください）")+
+    "</span>";
+  const bc=$("hiClear"); if(bc) bc.onclick=clearHi;
+  $("diffInfo").textContent=DIFF[mode].ds+"　スコア倍率 ×"+DIFF[mode].mul;
+}
+
+/* =========================================================
+   描画
+   ========================================================= */
+function draw(){
+  /* 店／一時停止の間は背景を描き直さない（最後の絵をそのまま残す） */
+  if(G&&(G.state==="levelup"||G.state==="pause")){requestAnimationFrame(draw);return}
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,"#1d1640");g.addColorStop(.55,"#33265f");g.addColorStop(1,"#463374");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const tt=G?G.t:performance.now()/1000;
+  for(const s of stars){
+    ctx.globalAlpha=s.a*(0.55+0.45*Math.sin(tt*2+s.t));
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.fillStyle="rgba(255,246,214,.9)";ctx.beginPath();ctx.arc(W-72,86,26,0,7);ctx.fill();
+  ctx.fillStyle="#1d1640";ctx.beginPath();ctx.arc(W-84,78,24,0,7);ctx.fill();
+
+  /* 列の区切り */
+  ctx.strokeStyle="rgba(255,255,255,.06)";ctx.lineWidth=1;
+  for(let i=1;i<LANES;i++){ctx.beginPath();ctx.moveTo(i*LW,0);ctx.lineTo(i*LW,GROUND);ctx.stroke()}
+
+  drawVillage();
+  if(!G){requestAnimationFrame(draw);return}
+
+  /* 自分の列を強調 */
+  ctx.fillStyle="rgba(143,240,208,.05)";
+  ctx.fillRect(Math.round(G.p.lane*LW),0,LW,GROUND);
+
+  drawShields();
+  for(const e of G.en)drawEnemy(e);
+  for(const b of G.bl)drawBullet(b);
+  for(const b of G.eb)drawEBullet(b);
+  for(const o of G.it)drawItem(o);
+
+  /* 雷 */
+  for(const q of G.beam){
+    ctx.globalAlpha=q.life*3;
+    const gg=ctx.createLinearGradient(0,0,0,GROUND);
+    gg.addColorStop(0,"rgba(255,255,255,.9)");gg.addColorStop(1,"rgba(190,160,255,.15)");
+    ctx.fillStyle=gg;ctx.fillRect(laneX(q.l)-16,0,32,GROUND);
+    ctx.globalAlpha=1;
+  }
+  /* 爆風 */
+  for(const q of G.bm){
+    ctx.globalAlpha=Math.max(0,q.l*2.4);
+    ctx.strokeStyle="#ffd7a0";ctx.lineWidth=5;
+    ctx.beginPath();ctx.arc(q.x,q.y,q.r*(1-q.l*1.6),0,7);ctx.stroke();
+    ctx.fillStyle="rgba(255,190,120,.20)";ctx.beginPath();ctx.arc(q.x,q.y,q.r*(1-q.l*1.6),0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  /* おうえんの なかま */
+  const p=G.p,L=heroLook();
+  const HL={tier:L.tier,hat:L.hat,cape:false,wing:false,aura:false};
+  cloneLanes().forEach((l,i)=>{
+    drawHero(ctx,laneX(l),p.y,G.mate[i]||G.type,HL,p.face,G.t+i*1.7+1);
+  });
+  drawHero(ctx,p.x,p.y,G.type,L,p.face,G.t);
+  /* 状態異常の表示 */
+  if(p.stun>0){
+    ctx.fillStyle="#ffe86b";ctx.font='bold 12px "Meiryo UI",Meiryo,sans-serif';ctx.textAlign="center";
+    ctx.fillText("しびれ",p.x,p.y-44);
+    for(let i=0;i<4;i++){
+      const a=G.t*9+i*1.57,rr=22+Math.sin(G.t*12+i)*4;
+      ctx.fillStyle="rgba(255,232,107,.85)";
+      ctx.fillRect(p.x+Math.cos(a)*rr-1.5,p.y-16+Math.sin(a)*rr*0.7-1.5,3,3);
+    }
+  }else if(p.weak>0){
+    ctx.fillStyle="#ff9a9a";ctx.font='bold 12px "Meiryo UI",Meiryo,sans-serif';ctx.textAlign="center";
+    ctx.fillText("よわ体",p.x,p.y-44);
+  }
+
+  for(let i=0;i<p.fam;i++){
+    const a=p.famAng+i*Math.PI*2/p.fam,fx=p.x+Math.cos(a)*54,fy=p.y-16+Math.sin(a)*32;
+    ctx.fillStyle="rgba(255,236,150,.35)";ctx.beginPath();ctx.arc(fx,fy,11,0,7);ctx.fill();
+    ctx.fillStyle="#fff6cc";ctx.beginPath();ctx.arc(fx,fy,5,0,7);ctx.fill();
+  }
+  for(const q of G.pt){ctx.globalAlpha=Math.max(0,q.l*2);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,q.r,0,7);ctx.fill()}
+  ctx.globalAlpha=1;
+  for(const q of G.tx){
+    ctx.globalAlpha=Math.min(1,q.l*2.4);
+    ctx.font=(q.cr?"bold 17px":"bold 13px")+' "Meiryo UI",Meiryo,sans-serif';
+    ctx.textAlign="center";ctx.fillStyle=q.cr?"#ffd76e":"#fff";
+    ctx.strokeStyle="rgba(30,20,60,.85)";ctx.lineWidth=3;
+    const s=typeof q.v==="number"?Math.round(q.v):q.v;
+    ctx.strokeText(s,q.x,q.y);ctx.fillText(s,q.x,q.y);
+  }
+  ctx.globalAlpha=1;
+  drawHUD();
+  requestAnimationFrame(draw);
+}
+
+function drawVillage(){
+  ctx.fillStyle="#241a45";ctx.fillRect(0,GROUND,W,H-GROUND);
+  const hs=[[46,"#f0c27b"],[132,"#f2a6a6"],[300,"#a9d8f0"],[402,"#c7b6f2"]];
+  for(const [x,c] of hs){
+    ctx.fillStyle=c;ctx.fillRect(x-22,GROUND+36,44,34);
+    ctx.fillStyle="#1a1235";ctx.beginPath();ctx.moveTo(x-30,GROUND+36);ctx.lineTo(x,GROUND+14);ctx.lineTo(x+30,GROUND+36);ctx.closePath();ctx.fill();
+    ctx.fillStyle="rgba(255,224,150,.9)";ctx.fillRect(x-7,GROUND+48,14,14);
+  }
+  ctx.strokeStyle="rgba(143,240,208,.45)";ctx.lineWidth=2;
+  ctx.setLineDash([9,7]);ctx.beginPath();ctx.moveTo(0,GROUND);ctx.lineTo(W,GROUND);ctx.stroke();ctx.setLineDash([]);
+}
+function drawShields(){
+  for(let i=0;i<LANES;i++){
+    const s=G.sh[i],x=laneX(i),max=G.p.smax;
+    if(s.hp<=0){
+      ctx.globalAlpha=.30;ctx.strokeStyle="#ff9a9a";ctx.lineWidth=2;
+      ctx.setLineDash([4,5]);ctx.beginPath();
+      ctx.moveTo(x-LW/2+8,SHY);ctx.lineTo(x+LW/2-8,SHY);ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;continue;
+    }
+    const w=LW-16,h=15,rate=s.hp/max;
+    ctx.fillStyle="#2b1f4d";ctx.fillRect(x-w/2-2,SHY-h/2-2,w+4,h+4);
+    ctx.fillStyle=rate>0.66?"#c8a97a":rate>0.33?"#c98a5a":"#b3564a";
+    ctx.fillRect(x-w/2,SHY-h/2,w,h);
+    ctx.fillStyle="rgba(255,255,255,.22)";ctx.fillRect(x-w/2,SHY-h/2,w,4);
+    ctx.strokeStyle="rgba(40,28,70,.55)";ctx.lineWidth=1.5;
+    for(let k=1;k<max;k++){const px=x-w/2+w*k/max;ctx.beginPath();ctx.moveTo(px,SHY-h/2);ctx.lineTo(px,SHY+h/2);ctx.stroke()}
+    ctx.fillStyle="rgba(0,0,0,.35)";ctx.fillRect(x-w/2+w*rate,SHY-h/2,w*(1-rate),h);
+  }
+}
+function drawItem(o){
+  const c=o.kind==="skill"?RAR[o.rar].c:o.kind==="fix"?"#8ff0d0":"#ffb36b";
+  const pu=1+Math.sin(o.ph*6)*0.12;
+  ctx.globalAlpha=.30;ctx.fillStyle=c;ctx.beginPath();ctx.arc(o.x,o.y,17*pu,0,7);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle=c;ctx.beginPath();ctx.arc(o.x,o.y,10,0,7);ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.85)";ctx.beginPath();ctx.arc(o.x-3,o.y-3,3,0,7);ctx.fill();
+  ctx.font='bold 10px "Meiryo UI",Meiryo,sans-serif';ctx.textAlign="center";
+  ctx.fillStyle="#241d3f";
+  ctx.fillText(o.kind==="skill"?"技":o.kind==="fix"?"盾":"爆",o.x,o.y+3.5);
+  if(o.kind==="skill"&&o.rar>=2){
+    ctx.strokeStyle=c;ctx.lineWidth=1.6;ctx.globalAlpha=.8;
+    ctx.beginPath();ctx.arc(o.x,o.y,15+Math.sin(o.ph*4)*2,0,7);ctx.stroke();ctx.globalAlpha=1;
+  }
+}
+function drawBullet(b){
+  if(b.type==="magic"){
+    ctx.fillStyle="rgba(180,150,255,.35)";ctx.beginPath();ctx.arc(b.x,b.y,b.r*2,0,7);ctx.fill();
+    ctx.fillStyle="#d8c4ff";ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fill();
+  }else if(b.type==="bomb"){
+    ctx.fillStyle="rgba(255,160,90,.35)";ctx.beginPath();ctx.arc(b.x,b.y,b.r*1.9,0,7);ctx.fill();
+    ctx.fillStyle="#3a2a4d";ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fill();
+    ctx.strokeStyle="#ffb36b";ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0.6,3.2);ctx.stroke();
+  }else{
+    ctx.fillStyle="rgba(255,235,170,.30)";ctx.beginPath();ctx.arc(b.x,b.y,b.r*1.9,0,7);ctx.fill();
+    ctx.fillStyle="#fff2c2";ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.8,b.r*1.4,0,0,7);ctx.fill();
+  }
+}
+function drawEBullet(b){
+  const c1=b.k==="hex"?"#c9a2ff":"#ff8a8a", c2=b.k==="hex"?"#f0e2ff":"#ffdcdc";
+  const r=b.r+Math.sin(b.ph*9)*1.2;
+  ctx.fillStyle=b.k==="hex"?"rgba(180,120,255,.30)":"rgba(255,110,110,.30)";
+  ctx.beginPath();ctx.arc(b.x,b.y,r*2.1,0,7);ctx.fill();
+  ctx.fillStyle=c1;ctx.beginPath();ctx.arc(b.x,b.y,r,0,7);ctx.fill();
+  ctx.fillStyle=c2;ctx.beginPath();ctx.arc(b.x-r*0.3,b.y-r*0.3,r*0.42,0,7);ctx.fill();
+}
+function drawEnemy(e){
+  const d=ENEMIES[e.k], S=ECV[e.k], x=Math.round(e.x), y=Math.round(e.y);
+  let ox=0,oy=0,sw=S.w,sh=S.h;
+  if(d.gait==="hop"){                          /* ぴょんぴょん跳ねる */
+    const k=Math.abs(Math.sin(e.ph*3.4)), sq=Math.round((1-k)*3);
+    oy=-Math.round(k*4); sh=S.h-sq; sw=S.w+sq;
+  }else if(d.gait==="float"){                  /* ふわふわ浮く */
+    oy=Math.round(Math.sin(e.ph*1.8)*3); ox=Math.round(Math.sin(e.ph*1.1)*2);
+  }else{                                       /* 歩く（4こまの足どり） */
+    const st=Math.floor(e.ph*5)%4;
+    oy=[0,-1,0,-1][st]; ox=[-1,0,1,0][st];
+  }
+  const dx=clamp(x-Math.round(sw/2)+ox,-6,W-sw+6);
+  const dy=y-Math.round(S.h/2)+(S.h-sh)+oy;
+  const sm=ctx.imageSmoothingEnabled;ctx.imageSmoothingEnabled=false;
+  if(d.dark){                                   /* 背景に埋もれないよう光でふちどる */
+    ctx.globalAlpha=.5;
+    for(const o of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,1],[-1,1],[1,-1]])
+      ctx.drawImage(S.sil,dx+o[0],dy+o[1],sw,sh);
+    ctx.globalAlpha=1;
+  }
+  ctx.drawImage(S.cv,dx,dy,sw,sh);
+  if(e.hit>0){
+    ctx.globalAlpha=Math.min(1,e.hit*1.6);
+    ctx.drawImage(S.sil,dx,dy,sw,sh);ctx.globalAlpha=1;
+  }
+  ctx.imageSmoothingEnabled=sm;
+  if(e.hp<e.max){
+    const w=Math.max(24,S.w*0.6), bx=dx+sw/2;
+    ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(bx-w/2,dy-7,w,4);
+    ctx.fillStyle="#8ff0d0";ctx.fillRect(bx-w/2,dy-7,w*Math.max(0,e.hp/e.max),4);
+  }
+}
+
+/* ---------- 見た目の段階 ---------- */
+function heroLook(){
+  const p=G.p,tk=G.taken,lv=G.lv;
+  return {tier:lv>=14?3:lv>=8?2:lv>=4?1:0,
+          hat:lv>=3,cape:lv>=6,wing:lv>=12,
+          aura:(tk.crit||0)>0||(tk.haste||0)>0};
+}
+/* ===== ちびキャラ描画（v7） ===== */
+/* =========================================================
+   キャラクター（ドット絵・座標計算）
+   1ドット = 2単位。32行 × 最大22列。足元 y=+26 / 頭上 y=-38
+   ========================================================= */
+/* =========================================================
+   キャラクター：ドット絵データ（56px高・パレット63色・RLE）
+   ========================================================= */
+const SPAL="faf5eb,fae9d1,fce3be,f1e1cc,f9dab8,fad6a6,ead7c1,f4cfaa,f6cb9a,f3c39b,f4bf85,e7c9a2,e5bf96,d1cad1,c8bebe,ebb684,e9ad7a,d3b298,d5ae7e,e2a46e,cba270,ce9673,cd9352,b6afb6,b19e90,b9926a,9e918f,ae826b,ae8049,9c7f66,7f8095,9e6f5a,9f6d36,8e6949,8a5d46,716c8a,776455,6f575b,7d5632,983f8b,7c4875,744d37,734064,66456a,66432e,613760,5c266a,475171,413c48,43343d,32323a,492753,312930,28272a,1d243d,3e1d41,36143d,1e1d1e,1f1224,15161d,100d0f,0c0709,020203".split(",");
+const SCH="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-";
+const SPR={
+ milly:{w:40,d:"0Hj10aT060B0X003s0y2z10Od0B09060B0d001y0s0r1n0r0s0w0y00Md0B1N2j0+0w0s2n0s0p0n1z00Kj0N0K0H0N0X0T0K0N0r0z0w1s2w0s1w0-00Ep3r0y0+0-2Y0K1j0T0N06130B0H0-0p0r0+00Bw1s0r0p0r0s0p0r0s1w2s0r0X2N06030K0N0-0r1y009p0s0r1s0y1w3r1s2w0z0T0N260K0N0X0+0s0p0s0z007n0p1r0w0y0w1s1r1w1s3w1X0B090B0N0X0+0w1s0r0y006n1o0r0s6p0s0r0s0y0s0r0s1z0X0d0H1X0-0y0s0p0z0s0w005o0a0b0p0s0r0p0s0r0s1p2s0r0s0w0r2w0z0X0j0X0+0-0w0p0n0p0w0r004w0p0b1n0r0p0s0r4p0r0s0r1w0o0c0r0w0+0N0T0X0d0+0w0s0c0n0w203w0p0c0n0o0U0c0p0n0r0s0r0p0n0p0w0n2r0n0p0w0+0Y0H0N1w1s0r0o0s0y1s001w0p0o0p0s0o0b0c0n0a0c0r0o0n0R0n0w0c0R0c0y0r0s1z0w0B0K0X0z0w0r0w0p0s0w0+0s0y000y0r1s0w0p0r0w1o0n0c1n1s0o0w0n0p0s0w0p1y0z0X0d0+0-0w0p0w0r1s0+0R0c000z0s0r0s0w0s0w0z1s0r1p1r0y0M0r1p0s0y0p0r0s0+0-0+0-1y0o0w0p0r0s0+0n001s0r1w1s0y0z0y0w0r2p0s0z0C0P0z0r0s0z0s2-0y1+0-0z0p0w0p0s0r0z001z0s2+0s1y0W0o0w0r0s1r0w0z0R1o0z0w0+0s2-0w1z0-1p0w1s1+001y0s1w0+0w1z0Z0r0s1w0s1+0U0R1U0o0z0+0w0s1+0w1+0-0+0r0w0z0s1+001y0s1w0-0z0w0U0Q1o0w0s0p0w0b0702150J0g0+0w0r1+0y0z0+0-0+0r0s0y0w1+001z0w2-0w0d0Y1U0Y0g0o0w0c0C050U0b1U0J0g0w0r0s0-0z0+1-0z0p0w0s0z0s0+001z0y1w0z0j1+2U0J0S0U0I030U0y0-1y0b0I0w0s0w0z0c0+2w0p0s1z0s0z001+0z0y0w1r0s0r0y0t0y0C05032Q0t1y1o1y0w0s0S080R0-0y0w0s1w0s0w1p001z0y0w0z0r0c0a0t0m0y0F0225040n0O0t1P0r0z0w0o0K0N070-0w2r0z0s0y0w102z0w0r0X0L0V0t2F0224020m0t1m020Q0z0w0r0K0B0C0-0y0w3s0w001z002y1g0B0R0a1m0E02310a0V1a020I0z0w0o0A050W0+0w0r0s0w0s0w006+0y0d0H020a0m0F010231040a1F080J0z0w0o0C0U0+0z0w0p0w1s0y006z0w0g0L090302980A080W0y0w0z0o0+0z0y0s1z0w0s0y006z0w0+0c0P0502250G0A02380J0b0w0y0w001+0-0z0s0z2s0w007y002P1702030B0A02030C0P0U101y002+0-0+0s0w0z1y0w0y006z003j011P3Q0U0z003y002w0n0z0s1y1n0s0w0z00Dw0s0g1b0c10810y0z0s1z0F010c0+00C-0O1S1F2a0+00840-0w1s0F0c00Cy0R0E3F040E0c0w10Ay0+00Cz0w0c016R0w0s1w009z00Dw0z0E016R0s0w1y00Ns1+0O0E410E0O0a0z0w0s10Ms1+0o0F040F0E2F0O0a0+0w0s1w00Ks0w1-0z0E014E0P0c0+0z0w0s0w0y00Is1w0z0+0j0g0d1g1j1Y0d0r0-0z0w0s0w00Is0w1+0w0d1N0J1L1d1j1w0+0w0s0w10Gb0w0y0z0w0d0T0X0N0T0d0T0X0d0X1d0j0+0z0w1R0U00D+0I0F0o0y0c0r0T2L0B0X0K0L0N0X0N0X0d0j0w0+0b04080g00DI0U002d0N0X0T0N1X0N0L0N0X0T0X1d0o0c0U20JT0N0d0N0L0T0X0L0N1T0d0N0T0X0j00Mj0T1Z0L0K0T0X0L1N1d0T0X0j00Ow1g0N0G0T1L0N0T0X0j0r0w00Rd0X0d201d1Y0T0g00RY090B0H0Q001U031A0W00RU02080B0S0025021Q00Rb041A0Z002C021Q00Ro0R0O0P0r002S0R0P1F00QY0R2r002g0U0a0R10Pb0Y0T0L0Q0j002U0L0S1T00OR010E0J0b0U0j001a070C0I0U10On0c0n1y0s101r0n2p10G"},
+ noa:{w:37,d:"0Cs0w90Nw0s0j4g0j2o1w10Jo0r0j0g1j4g0j1o0r0j1g0s0g00Fr0j4o0j6o0r0j0g1j1w00Do0j0g0j4g0j0g0j0o0j1r1j1g1j1s00Bg1Z0g0j1g6o0j0r0o0j1g1Z0j0g0j0o009g0Z1g0j1g3j0r1j0g0r1o0j2g0Z0Y0j1o009j0W1g0j0g2j1o0w2j0o1j1g1j0Y1j307Z0g0Z0j0Z1j3+0w0r1s0w0o0j1g1Y0Z0o0g0j1g0o006+0g1j1Y0W2j0+0z1w0r0W0g0s0w0g0U1j0Z0j0r0j0g0j0g0o005z0g0d0j0g2Z0W0r0j0H0G03023D0j0o0j3r0j0g0j1o0-004Z1j0g4j0g0B0602650b0o0g0j2r0g0j0g0j0-003+0j1r0g1j0g1j0g0802730I0j1g0j1s0o0j0o0j0-003+0j2g0j0g1j1Q0284050S0r0g0j0o0r0w0j0r0j0z003w0j0w0j4r0o0Q07024F0O1P0I080j2r1w0o0j1g003Z0j0w0g0j2r0w0o1P01023b3S050I0w0j0s0r1w0g0j0g0z001w0Z0r0s0g0j1o0j0T09030263361g0w0r0s0w1g0r0g0z001w0g0w0r0g0j0o0j0S0Q0J080302480P0b0r1S080C0j0r0s0w1g0r0j0r001w0j0z0g1j1o0-1+0c070302250C0w0+3b090W0z0w0z0w0j0o0j1w1g0o0z0j2z0-1z0y0z0c02132s0z0t2z1j0Y0U020C0Y0z0j0w0j0w0r0b0z0j2w0-0g0V0x0O0m0c0235040u0O0m0t0i0b0j0Y1N0H0P0z0j0z0o0w1o0+0j0g0z0+0g0J0O0v1t0c0233020q0t1q0V0I0L0Q0X0H0B0S0z0j0z0s0w0s0j0w0j0r0z0+0d0G0O0q0a0i0V025m0a2R070A0K0N0A0I0g0w0j0z0r0w1o0w0j0r0s0+0d0G040R0a1E025E0a0V1E080B0H050C0c0z0j1z0r000w0r0+0j1r0z0Z0H080D0I0F0213024F0O0I050A0K0w0o0r0w0r0j0o0w0z001z0+0j1r0z0w0Y0B090502230255090B0N0r0+0w1r2o0-003w0z0j0w0+1s0W080302280G12350D0S0o0z0w0s0r1o0z0o0z003z0-0j0o0z0+0z0w0b1D0302080A131C0U0b0g0r0z0w0s1w0s0r0s0w106j0w0z1w0+1b0U0R1U3Y0z0-1+0z0w2z0w1j008o0j0w002+1z0+1j3-1+3j000+0o00Cz102+0j0Y0+0z0j1g0w0z0w0z0b0H0g002+00HB0U0z0w1z0P0z0w2z0b080G0600JZ0J0j0s2r0s0r0s2z0b051A00J20S0w0r2p3r0s0w0g0G02030H00Hj070U0z0s6r0w1z0j05020A0z00GQ040U0+0z0y0w1y2w2z0s0A01030j00Fb08050N0j0+0y0w0y1z3y0-0w0N021900FR03090N0r0+0y1z2+1z1-0+0z09021o00DI05030K0Y0w0c3o0n0c2a0V0o0z0K05020D0Z00CU03080T0w0n0O0F0E1b0O0E1F0O0V0c0w0X0A02050g00BC080C0N0o0n0E240F040O042E010O0R0-0Q08020C0D0092061J0j0r0c013E010O013E0O0R0-0w0L03020701007r08030K0j0P0O0c013E010O01440R0z0F0o0L03070U008Q0b0W001c0F012E0O2E113O0a0V001g10En04012E0O0V0c0O0E013E0R0y00JE0O0E011E0P0z0O012E0P0V0a00Kj0Y0U0R0V1c0+0c0R2U0W0d0-00Kr0A0I0S0U103Q0M0I0B0M0+00Ko03021G0K003D05021J0+00Ko02260G003205021I0+00Kb020102080z003z0C011I0-00Ks0o0c04070z0044071I0-00Kw0o0w0+204z1+0-10KI0U0P0o0w0z004U0F1o0G00Jw0Z0g0w0z1+003+0o0b0W0r0w00Jz0r0s0w0+1-003+0w0o0j0s0z0-008"},
+ sumire:{w:54,d:"07z306w0y0w1y907z1y1w00Dy0i0n403y0r0n3p1o1n5w0z004n3i1s00Ci0n1o0p0r1f002n4o0n0p1n4p1n202n2i1n2i00Ap0i2n0p0u0k0u0s1n1o0w1s0o2p2r0p0n2p0n0p0s0z0r0x0r1p0o0k0a0k1n008s0n0i0V0i0n0x0q0k0x0n2o0p0r0s0r0n0o0n0o0p0r0p0r0p0n1o0r0p1w0v0x2p0r0n0R0i0m0n0z007s0i2n0x1u0z0i0c0k0n3p0n5p0o0n0r0p0n1p0r0p1y0r0x0s0n0k1c0i0n1z007p0o0n1p0u1z0i0V0a0o0n2p0n6r0p0o0n0p0n0a0c0w0n0p0s0y0s0x0r0n0a0r0n2s006n3o0n0q0o0z0i0a1n0a1n7k0n0p0i2n0a0c0o0w0o0p0y0+0y0p0s0i0n0r0p1n0z005o0n2r0q0u0z0n1m0p0i0a1i1f0k0n2a0R0c0p0a0V0i0n3y0p0s0z0-0z0n0p1i0s0p1n0+005p0n0p0n0s0q0v0z0n2p0n0i0k0o0n0i0c0V0a0c0i0a0n0y0n3r0n1r1s0w0z1n1p0i0r0p0s0n0z005p3s0u0v0y0n1o0p0n2y0o1n5r0+0n3s0n0o0n0y0r0s0z0+0x0n0r0k0p0n0x0n0z005w0p2s0v0x0s0n1w0p0n1r0o0c0n0p0n0p1o1y0Q0w0n1p0s0p0o0n0z0w0y0+0-0z0n0s0n2y0p0+006s0p1r0w0z0n2y0r0n0p0o0L0b0n1o1p2+070R0r0p1s1o0n0z0y1z0-0z0n0x0n2y0s0-006s0p0n0r0w0z0n2z0r0s0z1g0r0p0n2o0r0w0z0c1+0z0r0w1n1z0y0w0z0-0z0p0x0n2y0s0-006y0n1s0w0z0n2+0r0y0g0b0U0b0r0n0o0n1r0z0C0I2b0z0y0w0n1y2z0+0z0n0x0n2y0r0z005r0y0n0o0s0w0z0n0o0n0z0s0w0S08040R0o0n2o0s0z0502130I0b0w0y0p0n0z0y1z0+0y0p0x0n2x0s104z0s0y0o1s0w0z0p1n0z0+0U0j0s0r0o0P0o0n1r0b0C050s3L0Y0w0p1z0+0z0-0+0w0y0r0n0r0p1z0r0p003n0y0s0n1s0y0z0r0s0n0z0b0w0+0-1z0j0F0j0w0y0b0C0o0-3z0S0z0r0p0z0b0o0-0+0y0z0p0i0r0s0p0z0y0s0n001w0y0s0n0p0n0p0x0z0-0s0n0z1s0c0x0n0r0w02040714080R0x0i0x1n0z0+0p1z0S0D0g0-0y0r0n1x0s0n0s0z0n0p00110n0s0k0r0n1x0z0-0s0n0z0s0c0O0v0f0k0s0102330F0x0a0v1f0g0+0o1z0T0A0b0-0y0u0k0n0r0n0p1z0V010s0o010n0v0i0u1k0t0x0+0s0n0w0g0D0O0v2q0102470v0x0q1O0J0z0o1z0Q0A0c0+0x0k1t0q0i0v0q0y0V010p110n0q0i0q0v0i0u0v0y0+0w0r0z080O0q0e1f026k0e1l0O030r0p0s0g0D0M0r0z0q0k1x0i1v0k0x0a010p0u0a0v0l0i1u0q0l0q0x0+0y0r0+08030I0h0f0F026E0f1F04090r0p0z0Y0Q0b0r0v0i1v0q0f0l0v0i0v0R0i0t000f0q0u0i1l0v0q0l0v0+0x0p0+0I06050C0F020302670C080A0S0+0s0-0+001n0q0k0q1f1q0l0u0q0f0i001e0q1l0f1l0u0l1x0y0m001Q0905023A180223080A0Q0o0z0w003q0l1v0i0f0l1f0u0q102l0k1l0f0e0i0q1l0u0+0p002S0P0I04021A0B0A02150J0Y0b0c1z004q1v0u0f1l0i0f0a006O0v0i0e0f0l0v0q1+0s005I0F2I2P0Y0g0+0w0a010y003q2x0q0f0l2f009l0e1i0u0q1u006+0z0+0z0j1w0-0+0n0z0w0V01004u0v2i0f0q0a0l0x009l0f0e0f0v0x0u006z0p0E0z1w2-0y010R0z105q0v0x0v0f1q0e0a0x009e1f1v0c0V006s0n010V0z0g0j0s0c0E040z0s1p005R1x0e0l1f0e1l0e106V0e0l0f0u0a006w0r0E01040c0j0c0R012z0s1w006V0x0e0l0q0l0f0e1f004O1f0e2i0q0a005z0w0s012E0c0F012n0z0w0s0w105i010l0e0v0a0v0q0l006l0f0e0f0e0l007w2411040R0E0104010z0+0z0s207u0i0e0k0V0l009i1e007s1y0z0R0E0F1V0O0F2+0-0+0y0s208i1O00Ky0s1y0+0s0O2a0R2a0-1+0z0w0s0p0s00Uw3-0+0w0r0n0R0o0r0w0O0w0r0R0F0-0+0s30Ts0w0y0z0-1n0E210E0F040E1P0p0+0-0w0y0s20Rw0s1z0-1z0n0E2V0O0R0E0c0z0a1c0-0+0w0s1y0-00OR0r0w0y0w0+0-0+0o0O012O0F0R0E0O0y0c0P0a0-1+0z0w0+0o0b00N30C0s0-2z0w0c0104012F2E0w0s0O0x0+0z0+0-0y0o01030w00M30C1z1x0w0o0E04015E040s1u0e0x0f0v0z0n070C0B00Os0Q0+0h0v0s0n018E0R0s0v0e0v1e0f0z20Re0u0x0r0n0E011E014E0F0y0x0e0h0z0q0e0q00Te0h0c0r0s0c0O0F0E24010O1c0z0y0u0h0v0k0q0h00Te0k0F0V0c0n0p0w0R0P0R0P0R0y0r0o0n0m0c0e0P0c0z0h0e00Re0u001a0R0P0O0a6R0F0V0a0b0h003h00Qe1v003r0Z0a0V0a0R011a1c0j0Z0d004e10Wg0S0g0d1w001w0W1L1Q005k00Wb0805090H0w002508031I00dc071D0Q003I070F1I0P00cx2+104+0x0z1+00c+0x0k0r0z004s0n0r0x0r00cz0x0y0r0z004-0s0z1x00bo0k0z0w0y0z004o0+0u0h0z0r00Zw0o0q0w0z0+104y0w0u0q0w0z00Zy0s1w0+0-0+004z0w0s1w0z00I"},
+ kuroha:{w:39,d:"0Dw0s1r0s0y1w0s2r00Nw1p5s0w0p4s0y10Hw0s0n0o0p1o1w1r0p1r0p0n0p0r0p3y00Fo0n0o0n1w0y2s0r0p0s0z1s0n1s0w0p0s0r0p00Dp2o0p0r0p2r1p1o0p1r0s0p1s1p0o0p10Ay0o0n1c0s0p0o0p5o1p0n1r0s0p2s0c0p0n0s009n0p0n0c0n0p1n0s0r0p3n0o2n0p0w0n3s0n0p0r0y007w0o0p0n1s0c1p1o0p2o0n2p0n1o0n0c1n0z0n0s1y007c0p0o1s0p0V1p0c1p2n1p0c0w0c1a0o0c1p0w0z0p2o005z0p3s0n1o0s0n1o0c3a0n0y0c0n2p0o0p1z0p0r0s1+004y0p1o0w0s0n0o0w1r0p1n4s0r1n2s0p1n0z0p0r0s1z004z0r0p0o0w0r0p1w0y0r0s0p3n1w0D0w0p0o0p0s1p0n0y0p0w0s0p0n004s1p0s0y0r2w0j0r0w0p2r0p0r0+050U0o0p1w1o1s0z0s2r0-002y0s0w0p0-0y0p0r0w1Q0w0s0p1s3+071o0r0s0w0z0p1r0-0s1w0r0-002y0s0w0r0-0y0s1z0w0j0w0s0p2s1y0o0s0w0o0z0w1+0r0p1+0s0w1p0+002w0r0s0r0-0w2-0o0j0w0p0r2n0s0z0715070C0o0y0+0r0p1y0w0y0w0p0+002w1s0r0-0w0y0s0P0I0D0w0p0r0p0n0w0j0I05043P0o0+0r0p0r0+0z0y0s0p0y002w1s0r0+0r0P0b0w1U0Q0j0s2F07050C0z0+0z0+0U0I0g0s0p0s0-0+0z0w0s1w001y0z0w0s0-0w0+0z0-0+1b0G0J1I02050C0w0-3+0Y0W0w0p0w0-2w1s0y0z0s0+0y0s0w0+0z0+0c0x0s0w1U081302030C0b0x0i0x0y0w0s1y0p0y0b0S0w0z0y0p0y0+0s0+0w0r0w0-0+0z0F0v0i0a0y0b0402350F0q0E0v0x0k0c0+0w0p0z0Z0K0R0-0y0v0y0z0u0z0y0p0s0+0r0j020u0v0x1b04024E0v2u0a0I0r0w0o0z0d0K0P0-0x0u0x1l0x0y0p0r0+0j0H010q0l0i1V025E0q0f0e0f0R020U0w0n0y0Y0B0P0+0x0q0x1l0x0y0u0x0z0j0K020F0e1V0F026R0e1V07050U0x0n0w0I0P0x0q0x0q0x1l0z0y0u0v0y0r0Z03050P0R0F022112110F0P0R0I060G0Y0x0o0z0o0r0v0q0x0q0x001z0x0q0u0+1w0523021122210215060B0S0j0v0u0z0+0x0q1v0q002v1u0q0x1z0w05130211050H0K03022306080G0r0x0q0v0z0x0q0l0u0q0x002O0v1l0x2y0w1L0201120503022J0K0T0+2v0q0z0v1q0l204y0v0u0v0z0x1+0z0s0r0s0w1y0z2w0z1w0+1x0v1x0v1q0u009o001z2c2y0-0+0z2+0-0c0a0i1r0x0v002u00Fw0R0O0F0s0-0w0r0s0w0+0c040E0O1p0-00KF0E0R01040n0r0b0w1O01040O011F0o00K10R0E012R0c0O0F012O01140P00Ic04010V0O0134014R0F0E010E10H11E0c0R1c6a0F0R0c0P011F00Gc012n0y0w0s1r0c0w1y0+0-0z0r0P011E0R00E104011F0c0-0z0w1s0n0w1y0w0z0-0+0a04012O00DE01140O0n0-0z0y1w0n0w3z0-0+0c0E012F00CE012E0R0s0+0y0w2n0s1w0s0y0+1c0F01240F0c00AR0O0E010F0o0y0w0z0+0w1n0w2+0z2+0a0E010O1R0c00AO0P0R1V0r0w1y0s0z0+0z3s0z0w0s0z0c0V1R010F0r00910I0E0F0V0s0w2y0r1s0z0y0s0r0p0z0w0p0w0+0p0R04070I0G008z0G0B0J0I0a0-0y0s0y0w0r0p0r0s2r0p0z1o0s0-0s0R0W0A020K0w00820C0M001-0w0r0z0r3s1p0r0p0w0z0p1z0+001D070900A+103z1r0s1r0s1r2s0z1w0+003+00HS0H0w0+4-0+0z0+0o0H1Z00MS0B0H0K1Y002M0G1A05090Y00MU03160B060032090301030Z00MR022D005201120500Mz0y0n0b0c005U0b0c1o00Mz0y1z105y2w0z00Lz0w0z0w1z005z0w0r0y0z00Lw0z0r0w1y005w0s0z20Kw0p0s0w2z005z0y0s0r0p0w0z00Iw0r0s0w0y0-0z005-0y0r0n0w0z10Iz3-1+006-0+1-208"},
+ shirayuki:{w:53,d:"0Ja0O80f10E91000c006c0V000V00F10E0F1100310F1E3O0E042F2O1E005O0F0E10EO040E1F1c0p0V0O0E1O0R1F0E0F1O2E1F1O0F0V0F00140F1E3O00BO0E2O0R0a0c1F040E0O0R0V0R0O0E1O0R2F0E2O1F0R0n0z0R0O0P0O0E3O009E04010O0R1a0z0a0F0E1R0O0F2E2F2E0R0O0E2R0O0F0O0r0o0a0R0O1E3R008R040E0F0E0F0z0F0E010E0R0E1F1E4F1E1R0O0E2R0E0O0R0w0V0O0E1F0E2a008R0E0O0E0F0P0z0E011EAF0O0E2R04011E0R0E0R0r0p0a0O010F0O040F0R008O1F0E0O0r0c0E01040E011F0E041E4O04011O0F0E010E0V0F0O0a0w0i0V010E0O0E0F0E0V005V0E1O0E0O0R0-0O0E311R0E012E110E0R01040E1R0F0E1R0V0R0a0y0n0V0E2F0O0F0a005a0E0F0O0E0O0V0-0E2F0E110R0E0104011E1F0a0E3R0F040E1a0V0a0y0p0V0O0E1F0O0F0a005a0E0O1F0R0a0w0E1O1E0F0R0V0F0E5F0c0R0E0O0F0O1F0E0F0c0O0a0n0p0n0O0E1O040F0a005a0E0O0F0O0c0y0R0F0E0R1E0F0U0P0F2E3F0c0P0F0E0F1R0O0E0F0V2c0p0s0R0F0E0O0E0F0a005V0F0O0E0O0c0+0O0E1R1F0P1I0O2E2O1c0I0O0E0F0O0V0O0E0F1c0V0a0p0s0O0F1O0F1a005a0O1E0F0c0+0O0E1R1F0c0o1V0O2E1O1c0b1V0O1V0O0E0F0E0i0a1p0r0P0O1E0R0F0a005a0V0O0E0O0c0z0O0E1V0a1g0C1b0R0P0R0E1a0O0b02030U0c0R0V0R0F1E0n0R0c0p0r0R0O1E0R0F0R005c0V0O2c0z0O0E1V0c0b0A061M0U0R1E1V0U0W03180P0b0c0R0E2n0a0i0r1R0O0R0E0R0F0O0E004m0R0F0O1c0z0R0E1a0g0S0o2j0Q0P0V1F0R0W0G0o0r1o0J0W0R0E0F0E0n2p0n0V0F0R0E0O1F0O0a004O0E0O0E0c0+0a0E1b0Z0j0+3g0I0P0R1S0P0g0-0+3Z0b0F1E0r0o0z0n0c0V0F0V0E1R0F0P0c004O1R0E0a0n0p0F1c0b0z0n0y0p1+0I040P1I1c0z0m0t1s0w0c0O0F1r0D0j0s0c0R0O0R0F0E0R0P1O00310E0O0R0E0V0c0z0O1n0+0r0F0t0V1y0I04024t010n0t0V0g0o0O0F1s0M0C0y0c0R2E1O0V0O01002n0O0R1O0E0R0c0w0F0O0c0+0M040q0t1n0F0402310n0q0t0m0O0I0S0O0F1r0G0C0y0a0O0R1E1F0R0a0O0p002F0a0V0E0F0V0a0c0n0R0c0+0H040m0a0V0m0E02410m0V1a0R060S0R0F0c0j0H0P0s0V0O0V0R0E1F0R0c0R10110O0a0R0E0R0V0a0c0p0R0c0+0H020E0a0m0O026E0a1R020B0S0R0O0c0D0Y0x0a0R0V1R0E1O0F0a0n0E0a0c010c0V0O0E0V0R0a0c0p0R0c0z0M06050I1702640O1I0A0H0S0R0O0p0j0b0n0V0O0a0V0O0F0R0O0E0V0n040a0n010n0R0O0E0R1V0c0p0R0c0z0j060805023803080223050A0B0d0c0R1p0n0O0c0V0O0a0R0O1V0O0E0a0p0E0a0n010n0V1O1R0V1n0V0a0n0r0o080C050302050H2203180A0L0U0n0m0V0E001O0a3R0O0R0V0O1c0n0R001O0a0c0V0R0O1V1c0n0a0n002j0Q0P0223022Y0d0g0o0n0O0V0O002a0V0m0i0V0O1V0O1V0n0E0n00210n0i0V1F0V1a0x0a0m004w3s0r0o0g0z0+1-0r04004a0V0n1R0O0R0a0E0O0n0c01004o0a0V0a0O0V0a1i0a0n004z0w0c0+0g0Z0j0z0o0O0P0r0z0w004a0R0n1R0O0R0a0F0a0n008i0a0O0R0a2i004+0n0V1+0Z0X0j0s0c070U0r0z0+005a0m0n0V0R0V0a0O0m009i0a0O0V0i0a0n004y0s0c0E0R0p0z0w0c010c0U0r0w1z006O0a1R0V0a0R0n009O0V0R0V0m0a0r004w0o0p0E011P0E011c0o0w0s0p0w0z006E0i0V0R0V0a0V009E0R0V0a0m006w0r0p012E012a0s0r0y0w0s1z005a0V0a0V1a1F007a0V1a0n005y0w0+0y0r0F0E1O0F0E1V0s0w0z0w0s0r0w007i0a0R0V1a106O1a007w1-0z0w0a0O1P0O0F0O0V0w0z0+0y0s0p0w009O0V0R009m0n007w0y0-3+0c0E0F0+0-1w0+0-1y0w0s109m10Is0w0y0+0y1a0O1V0O0E0O0s0w0y0z0-0z0w0s10Tw2+0z0s0n0O0E4F0R0w1z0-1w0s20Rs0w1y0-0w1R010E014E0w0r0w0z0-0w0s2z00Qr0z1+1w14017O0r0s0w0+1w1y0s00PJ0S0j0+0-0w0z0R012E014F0w0s1z0+0z0s0j0U0L00PD0U0+0z0s0z0E012E010E012F0s1p0w0z0-0U0J0D00Q+0z0+0s0w0V04012E113O1c0o0w0y0+1z10Sw0r0+0V0O111E0O013O040c0n0s0w1+00Ur0s0-0y0w1V0E0O0P0E010E0V0c0a0s0n0o0w1y00Tz0w1-1w0r1s0w1z0w0y0s2w0-0s0w2z00So0r0y0-0+0b0M0K2M0+2G1M0W0-0w0y0w0s1r00Qw0j0g0j0+1j0P03060L0w0z0+1T051C0R0w0Y0g0o0w10Sz002z0w0R0b0j004J0I0b0U0z0w0z1w00X+0w0y0s0+004U0j0y0+0-00bz0w1z0-004z0w0y0w0y00a+0y0w0y1+004y1+0z10Zz0n0s0w0z0-0z004-0y0n0r0s0y00Yz3+204-0w0s1w0+00kz4+00I"},
+ rin:{w:47,d:"0DR9V00710R1P0100JE0R0O0E8F0O0R0V0a003a0F0E041E0V00HR040E0O2F0E0F0E0F1E1O1F0E0O0c0r0a0O2F0E2R00FR0E1F0R0V0a0R0E1O0V1O0E1F1O0E0O0a0n0c0R0P0O111E00E10E1F0R0F1E6P0O0E2O0F1R0p0s0R0F0E0O0F0E1V00C12E0O0E0F1E7O1E140R0E0O0n0w0a0R0F010E0F1R00B10E04010E2O0E5F0E2O0E011O1R1c0w0O0R0E040O0E1F009O0E110E04011E010E5O01140O0F01040R0O1c0r0R0O1E1O0F0R009O0E1F0R0E010O0154010V011E0O0R0E040R0O0R0a0m0s0F0V0E1O1V00910F0E0F0R0E1P0E0401040E3c0O0E1F0R0E1O0V0O1c0s0E0R0F0E0O0R0c008a0E1F0O1E0O0V0F0E0F0E4a0R0E2V0R0E1a0R0P0c0s0R0E0F0E0O0F0R008a0E1F0a0O0E0V0U0F0E3O1E0U0P0F2R0V0E1a0V0R0c0s0V0E0R0E1O108a0F0E0F0c0O0F0a0M0I0F0O0F0E0R0O0E0U0I0R0O2V0E1a1V0i0w0V0E0R0E1O1R007a0O0E0F0n0O0V0n0g0a0O2E0R1P0c0b0c0V0R0O0a0E1a0c0a0i0w0V0E0V0E1O0R0O007c0R0F1n0R0U08050S0R0P0O0E0R0V0R0C02080P0U0P0a0E1a2i0s0V0F0V0E2R1O006c0V0O1o0W0D0L1C0b0P0V0O0P0b0S030I0Q0L0I0U0c0F0E0a2i0r0a0O0V0E0F0E0O0c0a04005R0a0O0V0o0L0g0+1o0M0G0I0V0R0U0D0S0+2o0W0Q0O0F0c0s1m0a1O0R0E0O1E0R0n0c0R005R0O0R0r0+3z0r0M0A0I180W0+1z1+1s0P0O0c0P1s0i0a0O0R040O1E0F0c0V0E0V004V0R1r0+0n0m2y0R053I0c0a0m0t0m0n0+0O1c0U0L0c0n0V0R110O1E1V0r0F0a004c0a0R0b0d0U0a0m0t1O040204031O0t1m0V0S0j0O0F0c0W0H0U0n0V1P040R0O0F1O0p0F0V005a1b0T0D0a2m0O024O0m0a0m0R080S0O1c0P0J0Y0p0a0V0E1R0O1V0F0c0a006c0V0o0j090E0a1O0402470V0a0V0C0A0S0O0V0S0K0Z0p0c0a0R0E0R1O1V0F0a0n006c0V0p0j0A050F12770O0I080G0r0R0c0Q0d0b0i0c0a0F0R0a0V0F0O0V0F0a0V007V0c0o0g0A0502230A1302280G0M0g0s0O0a002c0a0V0O0V1O0F0V1R0c008a1p0s0P1702150G1302150J0U0c0o0r0R0E002c0a0R0V0a0V0F0O0a0V0a009c0a0p0F0n1R0I0O1I1F1I0Y0r1a0E0n0F002R0a0c0V1a0R0O0V0a0R0c002c0b3n0O0c1p0P011n0+1-1+1z0w0z0n0F0O0P0n003c0a0i0V0i0a0O0R0c1V0R002R0b0r2O0o0a0V0o0a010E0s0W0Z0+0o0T1g0z0y0w0Y0g0z01006V0a1O0R0c1R1E0O000O043E0c0R1c011w0S0L0z0y0z2w0s0w0j080A0M007R0c0a0O0a0c001O002O013F0n0c0p011s0Q0I0+0w3s0r1s0o02010506007c0V0R1V005O012E0O0p0c0s0O010r0J0z0w0s3r1s1w0Q0203090w006V1a0R106E011E0P0w040+0V0R0g080w1s1r0s3w0z0j0A03080r009a0V006P01040O0c0d0D0M0g0o0I090w3s0w0y0w0y0z0+0w0S06030B00Ib1c100B190L0P090H0Y0z1y0w1y0z1+0-1g0A020100OB0K0B090G0K0r0+0-0z0w0y1z0+1-0p0U0T0C0c0z00PK0B0K0j0n0z0w0o0c0o0w0j1r0s0o0R0r0j0w1r00Qj0V0r0j0Z0X0Q0X0d0L0T0d1j0r0-0w3s00Ra0O1P0U1R0O0P0R2p0-0z0w0s0w0z00RO1E1F0O0F010E0F1O0V0p0+0w1z10QE0F040E113E010E1R0a0s0+1c0U0600O1040O01140134010E2O0V0o0j0I02090S00M11E0174011E010F0P0a0g0L06030B0j00LE010F0124012E012E010E0O0R0c0R0W0Y0Q00LF010F013E012F012E110E0O0R0a00PV0E013E01140F01240F011R0V00SO0R0O0E012E0F1E1R0c0b0c0V00Vb0V0R2V0a0c0a1W0Y0W0g00Wd0Y0g1o002d0Y0N0H1Y00WT0H1K0Z003M09060B0K00WS0A080G0d003S0602030A0+00VP02010C0d004C02140+00Vz1r0j0w004r0n0o1+00VO1r0z0+004r0U0R0U0-00Ub0c0j0P0c0z004o0U1b0o0+00SF040E0P0o0y0z003o0P0F0P0R0I0-00Sp0n1o001w003w0c0a1c0s0+00G"},
+};
+
+const ECV={};
+const EPAL="f8f0df,eed5ba,dac3c1,dfbe85,cea8b3,cba564,b2a59a,b0988f,b18ccc,a981d6,b19063,af865c,9686a3,997bc1,9f855f,977c59,9f74c5,907194,95744b,89704d,9067c3,8a5dc4,8b694b,895e4f,766d75,756261,6c5a73,765b3e,7750b0,5e5072,735335,624f3b,754490,644362,5a3e7c,593f26,4a415b,463f40,45365b,3f3635,672638,472c56,3f2e4d,3d2453,352c47,332c30,342347,331d45,2a2832,272230,251e35,221e21,26173d,1b1728,201718,16151b,180f1f,0f0e16,0f091b,0e0808,07060a,040306,010001".split(",");
+const EPR={
+ slime:{w:28,h:26,d:"0C200P41600O62400J40200060C0t0a0J00140600G62B0P0S0C061N00HN0C0604060C060J0V0a00HU0k1e1q0t0q0o0l00F30H0A0M0L2M1T3A00C90A190A3H0A0L0H0T2900AA211A0H0A4L1T0X0L0M008Z0A1113091A4H0L0M0T1E008A2923090A3H0A0H0M1X0L007X0H0A391A4H0A0H0L1T0X0L0U005X0A1E0h090A4L0d0E0A1L0T0M0X0L0T005H1E0R030h0A3L0b0D0p0A2L1T0X0H004Z0A0H0E0u0U0s0A3L0s0b0+0A1L2T0X0L0d003Z0H1E0n0z0d0A3E0v0+0v0A0H0M2T0X0A0d003d0M0H0A0I0r090L0E1A1X0m0A0H1M1T1X0H0g003i0M1H1A1v0o0k0v0X0A0T0H1L0T2X0T1i003m0X0T0M0L0A1T0X2A3M0T3X2d003T0Z0X0T2M0L0H0L1H1A0T5Z2M00230L0H030X1T9M0A0T1X0T0Z0L0T100P0H0A0H0M1H090L0T6A091M0L1E0T2L0U000Z0T2X0H090A2H0A0H0A1H0M0L2T2X1i001l0m1i2Z0T1M1L0M2T0Z0i0d0g0m0r3U003I0R0b0l0d0i2d4i0m0d2Z0R0P1R001"},
+ bone:{w:37,h:40,d:"0IP0n0e00Vn070P0c0b1P00RP1Q070b1U0I0U10PD0U0b0I0P0c0P070P1U0b00NP0U1q0P0c1R0U0R0P0D0b0c0b00KP0c0R0P2b0P2b50Kc0D0c1e0k0n0c2I0P0c0b2n00Ik0P0q0k0P0D082P0W0q0c0P0j0c1h00Ib0o0c030153080Y0e0R0o0n1o00Hn0w031163070k0c0b0s0n0o00H-0703050301333D0u0c0o0n10H-070e0z0k0501170k0z1P070c0j0b0n0j00H+0Q0x0X0d0R01030b0x0X0m0q050c0o0j1n0073008z0D0x0i0r0b01030b0x0g0r0q050c0s0j0q0s006310950P0+0n030c08030c0z15070t0n0o0z007311008c03110D0y0u01330e0o0j0s0z0073070P009q0Q0701350P1k0y0q0j0n0o00810D008u0-0z0P0b0D070Y080y0u0+1u0n0z0w00830D0U00530b0e0+0o0y0+0z0+1z0u0P0z1q1P2071050P005P030b0y0k0P0R0P1U0P0I0k0z0k0b0P0D070b10730I004b1P0j0Y0z0e0D072Q0q0s0q0P0k0U0R1U0n0q00630I004P0c0o0U0k0e0o0y0+0-1u0k0b0w0I0q0c0q0u0w0z0+0063050U003D0P0D0U0w0k0R0D0I070P0R0U0k0z0u0y0P02210203020100450I004w0u0z0u0R0U171P0c1R0q0P03050C0J0F0B0G0N160410230R004P0Q0k0u0b0P0R0P0D0U0R1b0q0K070k1n0j0U0n3P0N00270R00110Y0q0n0W0c0z0n0c0b0q0e0b2c0q0K0F0h0b270Q0b0c0h0Q0N002R0b0P0R0o0u0c0P0n0y000u0q1Q0K0q0u0t0q0w0S080j0Y0b130P0b0Q0c0W0S0001050I0U0q1z0Y0Q0b0n001k0t0W0e0W0S0k0a0q0y0K080j0K0F0Q070Q0K0G0e0W0S000D001o0q070k0u0e0s002y0S0K0t1W1a0y0-0S0P0j0Y0e0G060F0Q0e0j0Y0S003U0w0y0n0q0o003c0w0o0P070q0u0y0b0o0V0P0j0b0c1B0W0k0Y0j0b0W003c0b0w0q0y003R0c1j0k0e0c0e0o0R0n0V0K0j0b080W0F0W0Q0e0n0W0S004b0q005n0b2j0b1n0U0P0e0a0G0Q0b2F0W0b0n0c0F006u005c0t0k0Y0D1R1P0u1q0W0B0U0b1Q0Y0c0o0F0N006D0Q004W080k0z0e0b0c0u0+0w0D080W0S080c1b0c1F0N00DD080e0k0z0b0P170Q0y0P0Q0y1a0B0Q0k0Q0G0J00Ec0P0U0q0u0P013u0c0b0P0n0y0q0S0B0G00Gn2q1P013P0q0c0w1y0P00II1c0s0j0o0b01370q0n0U0b0o0u00Hc0P0b0j0q0z0w0k0D3R0q0R0P0b0k0o00F10b0s0w0z2v0s0l0h0j1b0d0o0q0u0w2x0L005"},
+ witch:{w:47,h:50,d:"0Uj1b00fj0U1b1l00cU0d0U0Y0h0d0h0d0h0b00ZU0b0d0b0d2j0p0l0j0h00XY0d1b0Y0b0j1n0s2p0h00Vl0h0d0b1U0h0d0j0n0o0w0+0s0p0j0b00Sc1Q0Y0d3h0j0b0p0o0z0v1s0p10Hl0p3U002t0W0S0K2Q0W0c0r0l0j0p0s0v0z1w0x0j00Gs0p0s3p2j1p0s0o0S0K0N0J0C0W0e0s0p0v102v0j107P005p0s0v0w0x0w0y0+2v0s0p0b0d0l0p1q0W0V0J0W0o0v0w004l0d006d0I0U003p0r0s3w0z0+1w1z0v0s0U0d0j0l0p0q0k0q0N0V0k005s006U0d1R03002r1s3w0+0v0s1v0x1z1h0U0j0m0p0s0q0a0V0J00A10U0Z0d1m0b09002r2s1z0s0l0m0j0s0r2s0v1h0j0b0j0p0s0w0t009P0d0Z09030L1d0i0U001j0r1s0x0s0d0m0I0d0n0R0I0Y0o0k0l0s1q0n0j0p1s0z008R0i0L01190A0M0r0U0j01030k0v0s0w0s0I0p0d0k0c0d0R0g0Y0W0R0m0s0x0w1j0h0p1s006b0h0Z0A01290M0X0j0o0701030R0z1j0Y0x0p0t0e0l0g0m0c040k1l0p1v0z1s0j1n0p004j1Z0M0A01130M0Z0n0o07013b0l0g0x0t080B0q0l0q070F080G0t0s0j0p0z0w0z2s0p0s0p0j0s0w0d0U0i0T0L09010M0T0r0b0u05013Q0b0h0w0k0y0w080e0t050W0y1e0c0d0g0v1s0w0+0-1+0z0x0s0h000b1i0T0M1X0i0b0p07014b0h0l0w0y070Z0D0307020Y0I0h080t0b0h0t0Q0s0x0z1x1v103b0g0s0i0d0r0p0U0l0b0e013I0k0p0v0S030X0301250X0T020Q0Y0h0w070v0p0z0w0x0w0v005i0d0h1U0d0s0h0P0U014q0w0p0y030D0301220H09020W0Y0j0W1v0n0x00890p0x1v0U0v0x0w07016k0j0y0211421N0e0d0o0-0w0v0m10An000p0h0n0k0I0u03015c0Y0z0c0301080711021Q0j0h0y0z0s0p0l0m0g009l001Q0k0q010w05015c0U0z0+0e0802380c0z0j0d0+0w0s0d0p0l0h0P0085001e0O0q0703015b0Y0j0z1y0w0e1c0a1y0v0h0s0z1x0b0j1s0j0b00Ae0O0v0301530c0y0s0o0n0q0y1O0G0O0t0w0n0s0l0b0h0p1d0l0d0s0k0j00AY0s016P0q0s0R0x0c0t080o0I0Y0q070q0t0o0b0I0Y0j0s0l1p0o0710Ab0q07014P0b0q0k0r0h0w0e081Y0D050W0q1c0d0b0h1k0t0j0p0j0s0307009q0S0P014c0P0W0F0a0t0k080a02070Q0S0Y0h0k0O0c0j0Q0S0W0y0o0v0n0h0o07009t0O0P015R0s0k0e0z0h0P0W0F0W0K0G0Y0h0w0k0W0K0W0k0w0+0v0o0w0l0j00B60e0301030P0o0s0m0j0l0p0+0s0l0k0V0e0j0h0j0p0w0+0w0t0l0U0m0z0w1Y0o0j00Ck070c0Q0a0e0b0h0Q0m0p0z0v0s0v0S0k0p0s2w0+0x0p0j0b0h0l0w0-070o00DW0Q0W0k060W0P0Q0k0s1z1q0k0V0k0d0n0s0v0z0+1v0l0j0Q0h0n0u050c00CF0P03020Q0V0J0Q0k0n0r0x0z0y0o0c020Q0Y0h0l0q0t0+0-0z0o0W0G0Q0j0n0o00D50e0c070B0q0G0k0c0o0p0z0+0V0q0c1Y0e0k0K0S0q0z0-1o0e0o0P0b0j10D30K0y0B0C0k0O0q0W0n0s0z0w0a0S0k0s0k0G0e0W0o0p0s0w0-0u0o0G1B0G0N0B00C80B0t0F0a0y0V0N0s1z0+0q0e0q0W0F0O0k0t0w0c0m0p0x0+0t0S0C0k0t2V00DB0t0w0u0-0y0S0s0v0-0w0Q0t0m0h0N0a0h0g0p0e0W0p1v0W0a0e0G081e0t0k00Dk1R0z0y0S0s0x0y0c0t0l0b0i0O0c0d1l0u0K0e0l0p0t0y0701021400FW0q0U0s0y0N0w0z0q0c0y0d0Y0g0Q0b0d0Z0d0p0q0C0l0j0v0y0F1410Ga0t050e0t0V0c0k0S0t0P0Y0P0d0U0Z0d0Y0R0I0k0a0G0h0l0w0+0S0J00Ia0b010k0q0P0k0a0y0e0U0D1P0R0P080I0t2N0h0l0s0w0+10Ia0b012D0W0t0y0e0F0W0F0P1Q0y0a081S0W1l0p0s0v0x00IW0c03011u0W0t0+0K01040J0y0+1y02150S0q0B0k0j0n0p1s00HV0k0P011q0W0y0+0y081F0y0z0w0z0O0c0I0y0+0S0a0j1l1q0p0h00Ga0P011k0y0-0y0G0c0k0y0+0x0v0w0+0e0a0S0t0+0K0W0j0c0k0S0n0p0e00Fa0k07010a0y0+0z0e1o0+0z0x0v1z0t0W0e0u0z0y0G0W0n0p0k0c0V0J00Fe0k0D010K0P0z0c0k0v0s0z0+0z0x0w0z1p0o0s0w0+0Q0K2G0C0N00GW0k0R070R0e0Y1n0o0w1o3s0u0Y0R0s0w0z030P0k2c00In0P090D0o0x1w2s0I3U0u0k1w0z0o0d0U0I0D0I104"},
+ knight:{w:105,h:57,d:"0v1005F00480400-0PF004B0V0k003a0400-0PK003e0N0a0q0n002t0600-0OF0k001c0e0c0B0t0n0c0n0k000t0B0a00-0NS0t0y0e0k1c0P0o0Q0Y0k0q0+0e0K0e00-0NV0t0u0b0D0P0W080c0P0Y0c0q0y0W0e0k00-0CG009t0e0Q0e0b0c0W0G0e0b0c1w0N0q20BS00+t0F009y0q0c0o0k0e0a0S0o0c0e0q0W0e0q0w0052005B00+y0G0044004q0k0q1k0a0V0q0k1e0k0q0o0w004J0C0V003B0S00++0W102J060C003t0e080e0u0a1t180F0W0o0q0w00340J0a103G0k00+y0t0P0w001a0B0G0t002t0y0t0F1k0a0W080O0y1c0q0y00240C0a0t0q00280e0o00xQ0W110y0e0b001y0S0F0t0z001n0-0y0t0O0F0C0F0a0f0y1S0q0y001S040a0k0u0z0+0y0W0S0n0q00xt0c0Y0Q0+0t0k0z0w0z0a040W0+1-0o0t1f0y0a1y0f1y0a0W0t0z0+0W040K0t0n1q0t0W0Q0j0s0z00ye0Q0c0y0+0k1c0o0e080Q0+0-1u0Q0c0+0-3+0y0Q0O0k0u0+18060e1h0c0q0S0c0o0s0z0P003W0k00sc0k0e0t0+0e0Q0c0k0q0S0B0q0-0+0u1P0I0w0+2c0Q0W0q0u0w0-0W040a0q0b0U0k0a0B0k0u0z0+0q1W0Q0W0k00uk0q0e0u0k080D0e0o0W060k0-0+0q1t070y0+0-0+0S0W0q1t0q0-0W0C0q0j0R0D0e0K0k0o0w1u0n0W0Q0e0u00wq0W0e0q0e0I0e0k0w0N0a0+1q0k0q080y0+0-1W0a0q0a1y0q0C0a0q0j0b0e0N0W0n0u1k0e0W0G0q0w00t8002t0V0B0e0k1b0n0z0a0J0y2k180y0+0-1W1q0W0y0+0k0J0q1c2e0k0n0q0c0Q060S0q0y0-00tc2n0y0k0K0G0k0o2w0q0V0y0t0q0y0t0B0y0+0-1a1t0y0t0z0k0V0z0n1k0e0k1W0Q0F0Q0k0t0y10vq0k1o0n0o0S1k0u0q0w0t0J0a0y0t0a0y1+3y0t0e0a0y1C0V0t0o0k1u0e0K0B0K0k0y0z2e0W0Q0W00tu1q0n0q1a0k0u0t0G0c0S0a0w0s0q0S0W0e0S2G0W0q0y2G0t040e0q1e0J0N0t1u1z0n0u0k0q0t00uz0+1z0w0o0q0u0+0k0W1K0q1t0q0o0e0K040F0Q0k0q0t0Q0w0y0B0N0t0G0t1q1y1n0e0n0q0n0z0y0q00ve0t0z0w0u1w0t0a0y0a0N0k0-0t0F0t0s0w0t0F0o0k0c0q080k0q0w0q0B0J0a0y2u0q0o0k0c0n0q0w0y0+00va0V0W0a1t1e0J0k0+0w0t0+0-0t0W0G0k0o0W080b08070F0k0K0e0u0y0t1y1S0J0y0t0q0n0o0t0q0V0a1t00k107006S0t0y1+0S0K2a0y1z0+0w0u0q0k0a0S0q0a080b0O0c0e0c0a0k0q0w0-0+0-0w0y0S0B0S0y0t0Q03080B0a0W0a00j20F0e0F0O003q0c010e0y1-3y1q0y0-0w0s0o0e0a1q0a0F0k0c0k0j1c0o0q0y1+0-0u1z0a0C0B160t0+0z0+0z0t0S00ks0q0Q002J0301070k0q0W0q0y0-1w0s0y1-0z0y0s0q0a0k1a0B0e0t0q0n1o1u1w0+0-0+0q0w1y0-0+0y1k0t0y0+1y0a00jn0s0G0V000t0k03010b0k0q0k0B0K0y0+0z0v0q0w0-0y0q0z0s0w0y0S0k0S0a0K0y0o0n0o0z0w0q1y0-1+0k0n0q0+0y1t060V0q0+0z0y00ln0q0F0y0t150Q0u0c0Q1q0k0K0t0+0w0z0+1-0y0t0+0t0k0t0y0t1W0B0t0+0z0q1t0y0+0-2w0z0y1t081e2+0w0y00mt0S0q0y1Q0e0c0W0c1n0q0y0a0q0y0z0+3t0y0k0t1W0B0t1a0V0t0q1u0y0+0-3+0y0e08070c0t2y0k0z0u00mq1F0+0y0t0z0y0t0S1q0n0u0y0t1k0y0+1y2e0t0O0J04060t1W0q0k0z0y1t0-3k0K0S0t0k0e0Q0q0W0t1y0o0e00j5070w0u0S0a0+0z0e0Q0k0y0t0q0u0w0z0w0y0-2+0t0V0y0t0V0t1a0e0B0a0y0+1e0a0t0y0-2+0y0t0k2D0W0c0t1-0w0n0e00iI080S0t0u0e0K0y0w0u0Y0c0y0z0q0u0z0+0-4t0y0q0a0t0a0e0S040a1W1a060t0y0t1q0y0+2y0a0c0n0P0c0k0q1-0+0u0k0q00gI0P0k2w0n0W0S0a0w0q0c0w0u0z1+0-1+0-1+0q0W0y1t0y0q0t0f0a0y0a0V0y0t0y0F0e0n0s0w0+2-0t0k0u0b0c0o1u0+1t0c10cn07010D0R0q0w0t0u0w0u0k0B0K0y0u0e0y0u0z0w0y2c0y0-0w0u0W1y1f0t1f0y0S0a0y0+0a0K0q0b0j0s1w0+0-1t0a0G0S0t1s0z0+1y0c1n00b5071c0k0t0B0t1W0Q0q0a0e0+0u0o0w0q0w0c0k0t1y0-0+0u0n0W0q0k0y0t0V0t0a0G0a0y0-0e0y060q0b0j0o0u0q0+0-1+0y1S040W0a0t0+2w0W0c0n00Z1030I0e0n0o0a0V0t070F0e0q1e0-0z0w0q0o0w0+0S0q0t0+1y0c0a0y0+0W0+0t1N0C0t0u0q0y0S0y0q0B0o0K0J0a0w0y0-0u0k0n1u0y0t0a0y0+0-2e0c0k10W1170k0q2t0K0t0G0a0y0z0w0q0W0+0-0q0u0z0-1a0y1-0y0a0q0e0t0+0W0-0q0u0y0k0s1k0y0G0y1F0a0y0a0e0q0y0+0b0Y0o0c0e0k0o0q0+0-0w0-1z0n0k0q0n00T1170b0w0q1f0k0t0J0W0y1N0t0w0q0a1D0c0q0w0+0z1+0-1+0y0q0k0-0W0t0-0q0w0s1j0n0e0y070k0y1B0q1u0w0+0q0c0q1I0S060q0n0-1w0z0-0+0u0k0W0o0q0k00Q31P0t0u0o0a0k0t0k0J0a0t1V0k0q0w0q0e0W0c011D0w0v1z0+0-0u0q0S0t0+0a1+0n0u0n0c0j0e0a0+0G0K0+0z0t060W0q0s0z0u0z0+0t0P0e1k0o0-0+0w0v0z0-0y0o0k0e0Q0n0k10M3170c0n0q1k2a0t0w0a0V0y1w0u0c0u0q0W0q0D070+0u0v0n0z0+1a0N0a0y1S0t0y0e1n0b0c0k0F0+0a0F0y0w0-0y0G0S0a0q0y0z0u0k0o1s0q0z0+0v2x0z0-0u0k0e0n0e0k2c0I00H1170Y0q0t0q0V0t0f1k0t0f0k0t1w1j0P1w0q0W0k0I0P0z0q0s0z0-1t0a0y1+0s0k0y0w0e0k0o0b0o0s0e0-0W0N0t0o0u0+0-0y0a1e0+0w0u0z1+0z1w0x0v0s0x0w0+1t0Q0k0c0e0u0q1o0c00ED01030P0u0o0t1q0t0q0f1q1k0q0n0o0P1I0R001w0e0W0t0w0q0o0u0-0+1q0+1y1s0u0w0+0u0b0k0j0n1z0+0e0+0q0n0q0t0u0w0z1+5z0v2z0v0n0o0u0w0+0z0q0n0k0e0n0u0z00F1030D0U0q0t0k0f0k0t1q0k0q2e0b070D0R0q0s003q0W0a0w0u0c0w0-0w0z0+1y0q0K0y0w0u0w0z0w0c0e0c0q0-2u2e0G0P0n0u0y0+0-3z0v2s0z0w0s0o0s0u0w0+0z0q0e0q0k0o0w00D1130P0u1q0O0f0k0f1k0u0q0u1P0D1P007q0F0k0z0u0n0+0z0s0v0w0z0e0k0a0W0t0w1+0y0k0b0o0-3w0u0y0a0W0U0c0k0e0k0y0-2w0x0v0s1w0z0u0o0n0s0u0w0-1k0t0q0n0q00C5010U0c0q0t1k0f2q0o0q0w1P0D070D0b007W0V0e0-0w0s0w0+0x0s1v0z0q1e0u0e0k0-1+0y0e0+0-3+0y0k0V0k0o0k0t1e0y0-1z0+0x0v0x0p0s0z1n1k0u0w0-2q0k0c0k109103050k1q0k0f0k0t1V0q2t0D072n009t0k0y0w0o1z0w0x1s1w0+0e0t0w0y0t0a0k0y0-0+2w1-0+0q0k0y1K0e0n1t0k0+1x0z0+0s1p0w0z0y0w0o0j0n0s0z0-1z0u0k1c0u00612c0q2k0f0O0t3w0u0D030500Gw0n0o0+1q0I0w0v0w0-0+0y0o0s0t0y1t0y0+1z0v0x0+0-0+0y0t0n0t0I0c0k0q0n0z0+0z0w0+0w0s1z0+050P0w0o0p1x0-001w0u0k1b00410301030c0t2k1O0f0q1u0z0R0D071P00Gw0j0u0+0w070D0z0x0w0-0+0w0o0s1u1w0-0+0w0x0v0x0z0-1y0u0q1W0o0n0q0o0y0+0z3u0c0b0q01030b0w0o0p0u0-004n1021270e0n0q1k1a0k0a0k0q0t0b072c00Iz0j0w0+0b01030b0z0w0+0W0S0e0q0s0v0s0+0-0+0x1v0x0w1-1u0q0t0Q040G0W0k0y0c0P1k0z0w0Q0k05012Q0u0s007n001I01030P0q0o1q0k0f0O0k0q1k0e071I00Lu1w0507011D0o0u0z0t1a0k0q0s0z0-1+1x0v1w0+2z0w0V0e0t0y1t0a0y0U01030q0z0u03012P0u0s107u0011030U0s0u0q0W0V0q1o0q1b0P070P00O+0D01470y0e0c0n0u0k1w0q0y0q0P0o0+0w0x0z1I0D0y0e0t0q0c0b0o0n0t0k13010321370e0s00B10D0q0o0k0t0a0f0q2R170P00QU0b03350k0W0K0c0k0o0w0e0w0q0y0n090R0k0+0w0b0U0D1u0q0o1k0F0c0o0s0q0w0D038I0q00A11b0o0n0q1u1q0R0P070300R11P0103050D0U0z0k0q3w0y0+1z0h0I1R0b0U0P0I1P0z0w0o0q0e0G0k0q0n0u0w0U090311550P0I030081050q1o0q0s0w0P0R071R00X1130I0R0b0U4R0P0D090301591P0U0n0o0e1t0q0s0b0U0301106100A31P07531k00-0S30P5D070c0o0b002110-0N"},
+ queen:{w:123,h:69,d:"0Gb1P0Q0P00MY00RQ00PQ0I0D0e0c00Vn1c0k0R0U0R0c0e0P00IP00TI00Le0c0P0b0U0Q0u0o0k20U+0u0q0k0c0D0P1b00G70b008400JQ0800JP1D0I0n1q0y00Zz1u0c0b0c0j0q00FI0Y0o00710S0092008q0Q0I00Hu0c0Q0W0c0o0s0w00ao0j0P0k0c0k10GQ0c0u00780t00940a008c10Ik0e0P0e0Y1n10Yj0c1b0k0q0o0n00FY0Q0h0w0061060t0031004604008k050c00Hk1n0k0n1P0k0n00Wo0n0c0o0k0o0s0o0U00Fk0Y0e0t00640C0y002F040Q050R000-0N060J007c0Y0e00HP0c0o0n0u0s0n0e0q0c00Uo0c0b0s0z0+0s0n0q0U0o0z00Do0h070Q00660B0t0q03070W040k0D070I0+060J0G005k0Q0Y0f0k00Gt0Y0j0u0k0z0+0u0q0R0u10Sc0s0c0u0z0+0w0s0z0w0o0c0e00Eh0Y0c0I00450a0C0S0a080o0I020W0b0P0t0J0B0a0k0U003q0W0I0j0k0m00GQ0k0o0z1q0-2q0c0n10Rb1o0z0-0z0s0u0-0w0o0I0P00Ej0h0Q1k003K0a0N0a1G0S0e0Q0O0a0B0q0V0J0W0P0U002k0Q0Y1p0o00HR0n0s0+0-0s0+0-1w0o0P0k00QU0b0n0s0+1w0o0w0-0w0s0c0e00Eh0j0c0e0c0P0c0o0q0y0V0a0e0a0S0V0k0Q0a0C0V0W0Q0a0W0U0o0k0j0b0Q0Y0h0j0p00He0c0n0s0-1s1z1+0w0j0b0k00Ob0c0n0w1v0z0o0n0-1+0u0n0U00Fm0p1c0P0c0j0h0y0a0W070I0b0a0S0B0a1I03070P0c0u0q0Y0j0h0Y0j0r20Hb0c0o0w0+1z0n0z0+0z0+0w0n0k0q00Nb0k0u0z0v1w0n0w0z2u0o0b10Gj0l0k1j0c0w0703051D0I0a0J0W0I03250D0s0k0Y0s0j0s0l20Hb0R0k0w0s0z0-1n0o0+0w1z0u0c0R00Mb0k0w0+0w0u0w1o0+0u0w0u0z0u0q0b00Gr0n0o0s1w0R011715030Q0e050D03010D031b0x0p0s1o0p00Jb0k0q0+0s0z2+0n0+0w0s1z0q0j0b00KU0c0s0+0w0u1+0e0q0z0v0z0s0z0u0q0c0b00Io0s0z05010D010D07030103170P01030503050x0p1v0x00JR0b0o0q0-0s0z0s0v0+0k0n0z0s1w0z0n0c10Jb0n0u0z0u1w0z0n0z0w0u0z0s1z0u0n0b0P00Hy0z0n03050D050P070301151k03070I031j0v0x0+00JD0b0k0q0+0w0s0z0s1w0q0c0+0s1u0z0q0c10IP0k0w0z0v0s1z0k0q0z0s1z0s0n0+0y0o0j0I0k00Gc0u0U030D0P070e0I07031D0Y0c0D1c031P0w0v0w0z00Ib0j0k0w0-0s1z0s2z0c0z0s2w0+0j0c0j00Gc1q0z0w0s0o0s0w0n0-0w0s0o0z0n0o0+1s0n0c0b00ER0v0Y0j0P050U0P0Q050Q0I051P0t0K0c0P0n03050D0w0h1t0j0U00Fb0R0n0u0+0-0s0o0z0s2z0n0c0w0o1s0w1o0b00Gb0c0u0w0s0o1w0o0n0+0s0o1z0c0u0+0z0+0s0j0b0o008I002Z0t1Y0j0D070U0Y0e0a0t0b071t0k0B0G0Q0o070D1w0q0e0F0x0500EU0b0n0w0z0-1q0j0z0s2u0z0b0z0o0n0o0s0+0w0b0o00FI0u0z0u0s0o1z0n1w0s0o0s0z0c0w0+0w0-0w0s0o0D0b007A002U0Y080q0w0D070Y0q080Q070W0I1c050B0K0q0R070D1w0Q0C0a0p0h002E00AR1k0z0+0w0z0-0n0y0s0o0j0s0z0c0z0s0o0s0o0w0z0s0b00Eb0e0q0u0s1n0s1j0w0s0o0j0s0z0c0z1w1z0u0q0k0P0U006309001P0q0t0Q0a080I0q0z0t0y0t080Y0c070P0s0z0u0t0o0P0D0w0t0a0w0P0j0d0L0E109b0c0n0u0z0w0s0z0-0k0y0u0s0n0o0z0k0c0w0n1o1u0q0c00ER0q0z0s0o0n0j0u0j0n0w0s0o1s0z0e0z0u0s1z0+0s0o0e0P0I00590D0I1m0R0n0k0S080P0q0e050U0s0Y030G020g0T0i050k0u0D0I0k0N0W0b0j0I0n0d0P0I0R0A005P0R0b0n0s0w1s0p0w0-0k0w0u0o0n0o0w1b0+0n0j0n0o0u0w0n0b00Dc0z0u0o0j0c0j0u0c0q0s0o0j0s0u1k0z0s0p0s1z0u1o0n0c1k00390b0h0R0P0b0s0D0t0q0P0k0Q020I1301250T0X03080c070D0k0W0h0P0u0b0R1I0U0v0I003P0b0c0o0k0u1w0s0o1s0-0e0u0s0n0j0o0s0+0b0u0s0c0k0o1w1j00Bb1n0-0q0o0j0h0n0o0c0s0u0o0j0s0w0n0e0z0s0o0p0s0w0z1u0s0n0e0P0c0w001I0o0b0U0b0n0p0D0o0u0D0U0q030D0I020102110D0I030k0U070D0w0h0b0I0q1U0R0U0r0d0U0D0z0n0b0R0b0s0u1+0-0u0o0s0o0s0-0e0u0s0n0c0n0o0-0c0u1c0o2w0+0j0c00Ab0c0u0z0o1k0h0o0c0k0u1o0h0n0w0n0U0w0o0p0j0s0v0w0+1u1q0Q0U0e0c0j0z0c0b0j0n0u0P0D0b0w050I0t0702011221280Q0R050D0s0R0U0I0P0w0U0b0p0d1v0q0k0b0U0k0o0s0w0z1+0w0s0n0o1+0c0u0o0j0b0n0s0z0k0u1e0o0c0n0o0z0o0h0c009U0k0z0s0j2c0s0c0u0w0o0k0h0j0u0k0b0w0s0o0n1x1w0z0+0z0u0o0n0c0b0j0n0u0w0z1b050R0P0u030D0q0Q021103050301120G0w0D030U0s0I1R070b0z1w0s0p0n0j0U0o2s0w0-0z0w1s0o0n0o0n0z0b0u0o0b0j1o0s0w0n0u0k0j0n0j0o0u0z0c0b008q0b0n0+0o0j3q0c0s1n0j0h0b0s0u0c0w0s0o1j0s0v0u0w0v0z0w0u0s1o1n0s1w0k070P0b0I0n030D0u0w0k0803080F0503050W0y0n0D050w0j0P0D0R071o0z1s2q0o0u2z1x0o0z0u0o0n0s0o0n0z0b0s0n0b0n0h0o0s0-0U0v0n0h0j0h0n0o0z0n0k107j0q0+0z0o0j1h0c0e0k0u0o0j1n0Y0n0w0c0w0s0o0n0j0n0o0u0w0p0w0z1w0q0s1u1w1D1d0R0U0e0R050u0w0z0+0q022P0o0z0q0R050P0z0d0P050I15030n0+0w0s1q0o0u0+0z0s3w0o1n0k0n1z0j0s0n0b0n0c0h0s0w0b0s0n0b1h0j0o0z0-0o0e007b0u0-0s0n0j0h1o0j0o0u0n0b0n0d0b0j0w0c0w0s0n0j0n0j1s0w0p0s0u0z1+1z0+0z0u0P070b0D070U0u130u0y0+0-0+0y1t1u0+0z0j050k0n0b0U0D030b0D05030n0y0z1+1-0+0z0v0s0o0w0o1j0h0b0n0u0k0u0v0n0b0o0h0b0o0s0n1u0c0b0j1o0w0-0n0U006k0R0u0+0o0n1b0c0s0j0q0w0o0h0n0b0j1w0c0w0o0k0b0n1b0s0u0s0z0w0s1z0+1u0e070D0b0c0I1b0k0w070U0t0q0+0w0S0G0k1q0t0u070I0w0q0d0b0U030I0u0U0D030I0c1+1z0w0u1s0n0w0n0j0h2j0z0c0w0s0j1k0n0b0n0o0w0j0u0n0Y0j1k0o0+0s0b0e005o0k0w0u0p0n0j0h0n0s0k0w1o0h0j0b0j1v0R0q0o0h0j0h0n0h0o0w0z0n0o0v0w0z0y0q0P05070o0q0D1U0h0u0c0b0U050B0c0b0c0G0k0Y0e0O0Q0D0e050I0n0j0b0P050b0n0b0U0D03070q0y0w0u0s0o0b0v1j1h0b0h0j0+0c0y0s0c0o0h0j0Y0h0n0z0c0u0q0h0j1o0n0z0w0k105o0q0w0s0n1d0h0o0k0c0w0v0j0h1b0s0j0p0b0u0o0j0k0b0o0h0n0s0w0n0s1z0-0P01030D0z0q0P0D0U0j0w0q02010e042q0c080t0y08020O0b01120Q0z0n0Y05070R0w1u0D07030q0z0u0s1v0w0q0U0h0j1b0j0+0c0w0s2b1h0b0o0z0j0c0s0c1j0k0j0w0z0n0j004c1u0z0s0n0h0b0d0n0j0c0u0j0h0j0b0h0x0b0p0c0w0q0j0d0n0h1j0o0u0p0j0w0z0P050k0u0w0y0c070P0b0o0z0F050e070B02130W0c0B07021811270y0k0b0R03070c0w1y0w0P070+0u0s0p0n0z0o0b0h0n0j0b0j0+0c0w0l001h0b0j0b0o0w0n0c0w0c1j0b0j0o0w0n0c0o003c0j0z0w0o0j0k0b0j0s0k0j0s0j0h0j0d0l00090s0k0w0s0j0b0p0h0d0b0j0v0p0n0z0R070c0+1z0U070R0n0k0q0y0302050c0802380227020W0F022Q0y0t0h0P010R0b0j0+2D1z0s0j0s0w0j0l0j0o1h0j0z0c0u0r001d0h0j0Y0p0o0z0c0w0j0c0j2o0z1c0n003c0n0w0p0n0j0h1n0o0c0s0p0j1h0j003o0w0u0j0h0d1j0b0n0w0o1z0U0b0+0-0y0e050P0h0n0t0a0S08030t0W1B020102230G0K0J0K0t0G010F0W0V0e0w0U0I070D0j1z0-0u0D0+0v0n0v0j0h0j0l0j0n1j0w0b0o003X0h0b0p0o0z0c0w0o0k0j2s0v0z0c0n002b1o0w0j1b0h1o1c0u0n0j0p0j004s0l0p0l002m0b0j0s0v0n0z0b0U0y0-0n070P0U0h0n0k0K0W0S0q0t0k0F1K030804070a080B0c0W0t0q0e0Q0F0a0k0w0b0R0b0I080b0w0+0n0I0z0v0s0n0h1m0v070R0r0j0s0d0p004U0h0v0n0w0c0o2c0n0j0o0s0z0n0c0b001j1u0w0j0h1j0h0o0q0h0v0l0m0s005s0i0r0m003h0l0n0v0p0w1P0Q0-0P070b1j0n0y0W0B0a0t0u0k0c080F0G0J0F0W020G0b0j0v0+0t0V0S0k0W1w0b1d0Y07030z170w0z0v0p0h1l0v0P031X0r0h0j0l005d001x0c1o1k1j0n0o0z0q0b0k001n0j0u0w0j0b0h0j1s0v0j0v0i008i0r004i0l0p0v0s0x0z0k0U0D0R0U0j0d0o0t0w0q0S0W0t0w0o0j1W1J0W0N0W0b0h0p0s0-0y0a0c0R0k0y0+0n0b0d0h0U0P2u0z1v0r1j0s0b0509002i00Av0u0c0w0q0n0b0j1n0z0u0c0n001n0j0s1n0h1j1v0s0j0x009i0r005r1p0s0x0e0R0P0b2j0h0w0S0k0c0h0o0+1u0o0p0q0t0W0k0t0n0j0p0s0z0-1z0k0h0Y0k0a0e0j0d0h0P0b1I0P0U0w1r1x0R03010A002l00Bo0c0x0o0j0b0l0b0j0s0w0j0o001n0s0w0n0j0b1j1s1j00IZ0s1v0U0I1R0h0U0b0p0s0z0S0F0c0h0v0+1z0w1y0k0S0V0t0w0u0w0z0+2z0s0j0W0F0a0k0y0k0h0b0I0s0h0P0D0P0U0v0r0j01203m00Bj0b0x0p0h1j0b0j0o0w0c0o001k0w0u0n0j0h0b0h0n0s1h00Jv0R0P0I0P0U0n0P0U0b0v0y0k0c0Q0S0q0z0w0+1u0w0k0a0K0S0W0t0w0u1+1z0w0z0t0S0Q0c0q0t0z0k0b0P0I0u0b0R0I1R0b0n030100Ic0x0s0j0h0c0b0n0o0w0n0o001j0w0u0p0n1d0j0s2h00JR070D0I0b0w0s0I0R0h0s0q0Q0b0k0V0k0w0v0z0+0u0q0e0k0G0W0c0q0j0p0w0+0z1w0-0k0N0k0Q0Y0e0t0n0j0U0D0c0w0n0U0P0D0I0j0b0D00Ic0x0v0p0d0j0b0n0o0u0q0o000j0h0w1p0h2l0v0s1n00IU0P0U0d0n0z0w0b0U0h0v0w0W0F0k0v0q1x0w0+1w0n1o0K0c0k0j1p0u0+2z1t0q0s0h050W0k0u0s0b0R1z0o1j0R0I0P0b10Hw0j0s0x000Z0b0d0j0o0u1q000k1w0u0p0h201s1r00G10I0P0U0b0w0y0s0U0b1o0Q0W0G0e0o0w0+0w2y1u0j0k0n0S0c0j1h0p0t0y0t0-0+0x0z0+0s0n0c070K0W0q0j0b0R0o0b0u0z0s0P0R0D1I00Gv0j0x002i0h1n0w0u0j0e0n0o0z0u0p0h1Z002s0r00F10D0P0b0c0o0P0o0b0U0d0h0o0O020S0o0u0z1w0+1c0J0t0j1k060J0k0j1u0a0N0t0-1z0x2s0e0S0K1y0w0j0U0j0h0b0z0n0s0p0h0R0I10Fm0l0s003h1o0w0u0c0n1o0z0s0h203r0i00ED1R0n0s0h0D1s0d0b0h0v0c0Q0S0J0k0z0x0w1-0+0y0k0B0t0q0K061W0q0t0G0V0t0w0+0-0z0x0v0x0w0a0K0k0P0k0q0o0b0U0d0b0p0R0d0p0n0p0d0D0I00Ei104j1o0w0u0b0n0o0p0w0s0j0i005Z10DD0b0c010P0U010P0p0h1u0Q01180t0y0v0s0x0+0x0s0p0t1F060W0G0W0G0W0K0t0w0v1s0w0+0x0s1x0y0+0802150Q0w0h1d1j0D0d0I010P0l0R0U00Dj0r004r0n0p0u0s0c0o0l1x0p0i105d0i00Cj0P0e011b0U030j0h0k0Q07050Q0G1+0v0s0v0x0z0p0j0l0W0y0a0N0k0U0c0t060t0w0k0b0Q0W0k0s0z0x0v1-170e070307080u0h2j090d111P0U10Dh006l1v0w0j0o0m0l0x0r0i007i00Cp0h012r0h0D0d0c0W0Q0k0O0y0Q0W0+0v0s0+1z0W0B0q0G0t0y0k0K0e0c0K0t0w0t0J0o0O0S0k0v0x0+0z0s0+180t150y0S0W0x0j1b0D0i0m0D09010P0j00LZ0l0s0w0j0p0m0i0v0r0i00Mp0U01030s1j0h0q1W0O0G0t0k1x0s1+1o0k0a0t060y0w0+0k0F0N0y0w0p0y060y0c0Q0k0o0z0+1v0x1e0q0t030t0F0t0p0l0p0P0D0d0s0d0Z030P0p00Mm0s0u0l0v0i1v0p0i00NP010P0s0x0b0D0b0o0t0k1u0x0v0s1x0z0w0V0K0q080W0-0s1y0S0a0w0v0h0w0W0G0w0c0F0e0k0w0-0z0v0x1v1c0y0e0w0p0h0U0I0P0x0r0d0Z010P0s00Mr0v0u0p001l0w0s0i00O90P0x0v0R0I0b0w0-1x0s2r0x0z0k0W1k0q020q0+0h0s1k0t0o1b0w0t0B0o0j0e0N0V0k0u0-0x0v0s3v0x0v1x0n0P0s0x0s0i010D007300Fr0v0u0p001p0w0s0d00Pd0i0s0b0R0v0z0+0x0p0s3z0w0t0k0j0m0B0a0y0+0b0p0j0p0j0v0h0b0w0y0V0B0n0m0q0t0v0s0+0z0s0r0s0m0v0s1v0s1v0x0d0r0m0i0b00810E00Ei0v0s0o001s0w0s00Qi1j0p0v0x1p0r1v0s1z1p1l0i0m040y0Q0y0e0l0h2n0Y0k0y0S0k040k0l0i1x2z0x0s1l0x0v0m0r0x1r0m1i1m0s00Qv0p0o001s0x0v00H90X0T002b0p0m0l0r0p0x0s1r0l1s1x0z0-0s0m0l0i0j0Q0S0y080t0w0g0l0b0d0l0U0u0+0K0t0K0S0h0g0i0m0s0r0x0+0x0v0s1x0s0l0v0z0s0r0g0Z1i0m0l0p0s0m0g00Lv0n0o001s0p0s00JT0d0b0d0h0j0I0l0r0s0v0r0i0r0i0r0s0p0z0-0z0r0l0i1W0B0t150W0c0Y0l0b0j0n0Y0t0k0F0a0y060W0g0d1j0p0r0z0+1x0r0x0z0m0l0s0x1m0i0d0g1i0d0h0l0h00Lp0n0s001i0r0p00Kl0r1d0h0d0h0z0x0s0r0X0b0m0r1x0-0z0p0l3F0a0t0C03080t0h1b0h1b0t08050F0k0t080g0d0Z0R0s0r1z0+0z0v0j0x0l0d1v0x1p0r0l0r0h0b0m0h0m00Kr0p0s003p10CT005d0h0d0h0m0s1z0v0p0i0b0Z0r0s1x0z0x0p0h0l2Q0F0t0a0502080c0o0p0b0Y0p0z0t0802040B0t0B0Q0g1d0h0m0r1x0z0x0v0x1d0Z0i0s0x0z0+0s0r1i0b0i0h0b0Y005T00Bv0p0u003p10Ai0I1b003T0d0U1l0m0v1x0r0Z0d0i0s0r0p0v0z1r0h0l0m0j1W1+0P0213080k0o0h1s0+0G04021B0c0q0B0l0g0i0h0m1r0s0z1v1x0m0g0U0i0m0z0w0v0l0h0b0d0b0g0b1i00390X0T00Av0p0w003i0l009i0m1i0U0R0U0b0i0Z0g0i0b030d0m0x0l0Z0g0i0r2v0z1p0i0l0R0c0o0S0N0y0-0P0502050B0t0o0l0g0v0+0e05030G0B0W0t0C060l0i0r0p0P0l0r0v0z0+0v0x0v0r1i0b0g0h0l0+0s0l0d0U0b0U0Y0d0m0r0b0U1Z209s0n005p008Z002i1b0R0U0Z0d0b0g1i1r1R0i1r0s0r0x0z0x0r0l0h0b0h0l0G0B0V0+0-0c0Y081a0+0p0b0h0z0+0o0Q080I0F0W0-0e060c0i0d0h0m0l0m0r0p0x0+1x0s0m0v0s0d1m0n0s0v0s0m0l0i0d0b0R0U0g1Z00Cp105s0h006Z005i0d0i1d0R0d1r0d1I0d0r0v0z0s0z1s0p0g0h0l0h1Y0F0V0y0+0y0W080Q0c0y0+0u0U0k0+1y0Q0c0I0k0a0y0+0t0B0c0d0h0b0k0m1l1p0v0z0x0s0r0h0m0U0P0Y0b0l0m0d0g0i2d1l0i00Dj0w006p00Fi0d0b0i0r2R0X0d0m0r0x0-0z1x0l0r0l0h1g0h0B0G0y0z0+0e0y040k0W0+1z0Q0t0+0-1e0Q0k060S0q0-0+0B080h1d0P0h0m0l2r0w0-0x0r0s0l0g0Z190R0s0v0x0r1m0i0d00Fb007s00Fd0i0r0x1s0d0Z0i0m0r0v0z0-0z0v0j0r0m1Q0Y0h0S0C0y0w0z1q0W0t0S0u0+1z0e0y0z0+0-0+0e0K1q0v0-1y060O0j0d0h0b0l0r0m2s0x3r1g0d0Z0l0x0w0u1s1l0i00Ep008l0r00CX0i0d0h0p0s0I0D0P0d0i0r0v0+0z0x0s0m0e0c0h0m0W1O0S0y0x2z0p0q0Q0k0u0-0x1-0z0x1z0+0e1S0l0s0+0z1y0G0K0G0h1j0k0l0c0m0l0r0v0z1x0v0r0g0d2R012U0l0i20Cp00KZ0X0d0i0b0D010D0U0b030U0r0x0z0a0o0r2o0F080b0r0c0G0J0w0x2z0+0s0Q0G0o0z0-0x0v0+0z0v0x1+0v0k080o0s0y0x2t0G040Q0l0e040J0Y0r0m0r2p0y0t0v0m0d0Z0d0p0R0D0E090I0i0b0U0R0r00WT001i0U03091b0R0I0d0s0j0u0N0W0c0e0j0k0c0j0Q0N1S0t0w0z0+2s0e0q0k0n0z0-0z1v0s0v0x0z1s0j0t0K0k0t0w0v0s0x0t0a0B0F0K0t0F0h0l0p2j0e0a0S0w0x0m0d2r030X1D103d10bX0r0d1h0b1c0a0V0J1F0S1K0G0J0q0w0+0v1p1v0e0S080q0p0z0p0n0j0s1p2o0s0e0V0F0e0t0y0l0s0v0+0-0V0K1S0O0W1c0W1J0K0S0k0j0h0d0s1d0Z0r0R0100rb0U0h1a0S2e0j0h0d1R1X0T0d0e0W0a0e0u0n0R0I1U0b0U0P1R0w0k0G0e1t0d0I0b0d0j1p1c0J1G0J0K0S0n0d0h1b00110D001Z0r0D00N"},
+};
+const CHARS={
+ milly    :{nm:"ミリィ",  wp:"staff", rate:.45,dmg:3.0, ac:"#e8c471"},
+ noa      :{nm:"ノア",    wp:"dagger",rate:.36,dmg:2.4, ac:"#c08a5e"},
+ sumire   :{nm:"スミレ",  wp:"dagger",rate:.36,dmg:2.4, ac:"#a24bd6"},
+ kuroha   :{nm:"クロハ",  wp:"sword", rate:.56,dmg:3.9, ac:"#8b57d6"},
+ shirayuki:{nm:"シラユキ",wp:"staff", rate:.45,dmg:3.0, ac:"#9fd6ff"},
+ rin      :{nm:"リン",    wp:"sword", rate:.56,dmg:3.9, ac:"#e8c471"}
+};
+const ACC=["#e8c471","#c9a2ff","#7fe3ff","#ffffff"];
+const SCV={};
+function buildSprites(){
+  bld(SPR,SPAL,SCV,56);
+  bld(EPR,EPAL,ECV,0);
+}
+function bld(SRC,PAL,DST,fixH){
+  for(const k in SRC){
+    const s=SRC[k],w=s.w,h=fixH||s.h;
+    const cn=document.createElement("canvas");cn.width=w;cn.height=h;
+    const g=cn.getContext("2d"),im=g.createImageData(w,h),D=im.data;
+    const sn=document.createElement("canvas");sn.width=w;sn.height=h;
+    const g2=sn.getContext("2d"),im2=g2.createImageData(w,h),D2=im2.data;
+    let pos=0;
+    for(let i=0;i<s.d.length;i+=2){
+      const v=SCH.indexOf(s.d[i]),ln=SCH.indexOf(s.d[i+1])+1;
+      if(v>0){
+        const hx=PAL[v-1];
+        const r=parseInt(hx.slice(0,2),16),gg=parseInt(hx.slice(2,4),16),b=parseInt(hx.slice(4,6),16);
+        for(let t=0;t<ln;t++){const o=(pos+t)*4;
+          D[o]=r;D[o+1]=gg;D[o+2]=b;D[o+3]=255;
+          D2[o]=255;D2[o+1]=255;D2[o+2]=255;D2[o+3]=255;}
+      }
+      pos+=ln;
+    }
+    g.putImageData(im,0,0);g2.putImageData(im2,0,0);
+    DST[k]={cv:cn,sil:sn,w:w,h:h};
+  }
+}
+
+function drawHero(c,x,y,type,L,face,t){
+  const C=CHARS[type]||CHARS.milly, S=SCV[type]||SCV.milly, T=L.tier, ac=ACC[T];
+  const bob=Math.round(Math.sin(t*3.2)*1.5);
+  const cx=Math.round(x), by=Math.round(y)+bob+26-56, bx=cx-Math.round(S.w/2);
+  const R=(px,py,w,h,col)=>{c.fillStyle=col;c.fillRect(cx+px,by+py,w,h)};
+
+  /* 影 */
+  c.fillStyle="rgba(0,0,0,.30)";
+  c.beginPath();c.ellipse(cx,Math.round(y)+27,Math.round(S.w*.42),4.5,0,0,7);c.fill();
+
+  /* オーラ */
+  if(L.aura){
+    c.globalAlpha=.15+.06*Math.sin(t*5);c.fillStyle=ac;
+    c.beginPath();c.arc(cx,by+28,42,0,7);c.fill();c.globalAlpha=1;
+  }
+
+  const hw=Math.round(S.w/2);
+  /* --- 背面：リボン（Lv3〜） --- */
+  if(L.hat){
+    c.fillStyle=ac;
+    for(let i=0;i<7;i++){
+      const px=-hw-1-i*4, py=20+Math.round(Math.sin(t*4+i*.7)*3)+i;
+      c.globalAlpha=1-i*.11;
+      c.fillRect(cx+px-4,by+py,5,3);
+    }
+    c.globalAlpha=1;
+  }
+  /* --- 背面：白いマント（Lv6〜・左右に垂れる） --- */
+  if(L.cape){
+    const f=Math.sin(t*3);
+    const seg=[[15,0],[18,1],[21,2],[24,3],[27,4],[30,5],[33,6],[36,7],[39,7],[42,6]];
+    for(const s2 of [-1,1]){
+      for(const[py,ex]of seg){
+        const o=Math.round(f*ex/3)*s2, x0=hw-4+o, x1=hw+2+ex+o;
+        c.fillStyle="#3b3550";
+        c.fillRect(s2>0?cx+x0:cx-x1-1, by+py, x1-x0+1, 3);
+        c.fillStyle=py>=39?"#ded8cf":"#ffffff";
+        c.fillRect(s2>0?cx+x0:cx-x1, by+py, x1-x0, 3);
+      }
+    }
+    c.fillStyle="#3b3550";c.fillRect(cx-hw-2,by+12,(hw+2)*2,2);
+    c.fillStyle="#ffffff";c.fillRect(cx-hw-1,by+13,(hw+1)*2,3);
+    c.fillStyle=ac;c.fillRect(cx-hw-1,by+16,(hw+1)*2,2);
+  }
+  /* --- 背面：光の翼（Lv12〜） --- */
+  if(L.wing){
+    const f=Math.round(Math.sin(t*6));
+    for(const s of [-1,1]){
+      const W=(o,py,w,al)=>{c.globalAlpha=al;c.fillStyle="#ffeec2";
+        c.fillRect(s>0?cx+hw+o:cx-hw-o-w, by+py+f, w, 3)};
+      W(0,24,8,.95);W(2,21,9,.95);W(4,18,9,.92);W(6,15,9,.88);
+      W(9,12,8,.8);W(12,9,7,.68);W(15,6,6,.52);W(18,3,4,.36);
+      W(0,28,7,.8);W(2,31,7,.6);W(6,34,5,.4);
+    }
+    c.globalAlpha=1;
+  }
+
+  /* --- 本体 --- */
+  const sm=c.imageSmoothingEnabled;c.imageSmoothingEnabled=false;
+  if(T>=3){                                    /* Lv14〜 光の縁取り */
+    c.globalAlpha=.55;
+    for(const d of [[-1,0],[1,0],[0,-1],[0,1]]) c.drawImage(S.sil,bx+d[0],by+d[1]);
+    c.globalAlpha=1;
+  }
+  c.drawImage(S.cv,bx,by);
+  c.imageSmoothingEnabled=sm;
+
+  /* --- 浮遊する武器 --- */
+  const wx=cx+hw+2, wy=by+26+Math.round(Math.sin(t*2.6)*2);
+  const dk="#2a2338", si="#eceaf2", wh="#ffffff";
+  c.globalAlpha=.20;c.fillStyle=ac;c.beginPath();c.arc(wx+2,wy,8,0,7);c.fill();c.globalAlpha=1;
+  if(C.wp==="staff"){
+    c.fillStyle=dk;c.fillRect(wx+1,wy-2,3,14);
+    c.fillStyle="#4a4266";c.fillRect(wx+1,wy-2,1,14);
+    c.fillStyle=ac;c.fillRect(wx-1,wy-8,7,6);c.fillRect(wx,wy-10,3,10);
+    c.fillStyle=wh;c.fillRect(wx,wy-7,2,2);
+  }else if(C.wp==="sword"){
+    c.fillStyle=si;c.fillRect(wx+1,wy-9,3,14);
+    c.fillStyle=wh;c.fillRect(wx+1,wy-9,1,14);
+    c.fillStyle=si;c.fillRect(wx+2,wy-11,1,2);
+    c.fillStyle=ac;c.fillRect(wx-2,wy+5,7,2);
+    c.fillStyle=dk;c.fillRect(wx+1,wy+7,3,5);
+    c.fillStyle=ac;c.fillRect(wx+1,wy+12,3,2);
+  }else{
+    c.fillStyle=si;c.fillRect(wx+1,wy-5,3,10);
+    c.fillStyle=wh;c.fillRect(wx+1,wy-5,1,10);
+    c.fillStyle=ac;c.fillRect(wx-1,wy+5,6,2);
+    c.fillStyle=dk;c.fillRect(wx+1,wy+7,3,4);
+  }
+}
+
+/* ---------- HUD ---------- */
+function drawHUD(){
+  const p=G.p;
+  ctx.fillStyle="rgba(0,0,0,.35)";ctx.fillRect(10,10,W-20,34);
+  ctx.textAlign="left";ctx.font='bold 13px "Meiryo UI",Meiryo,sans-serif';
+  ctx.fillStyle="#f7f2e8";ctx.fillText("Lv "+G.lv,18,29);
+  const bx=62,bw=W-170;
+  ctx.fillStyle="rgba(255,255,255,.15)";ctx.fillRect(bx,18,bw,10);
+  ctx.fillStyle="#8ff0d0";ctx.fillRect(bx,18,bw*clamp(G.exp/G.need,0,1),10);
+  ctx.font='11px "Meiryo UI",Meiryo,sans-serif';ctx.textAlign="right";
+  ctx.fillText("スコア "+G.score,W-18,29);
+  /* 撃破のすすみ具合 */
+  ctx.textAlign="left";ctx.font='bold 11px "Meiryo UI",Meiryo,sans-serif';
+  if(isFinite(G.D.goal)){
+    const left=Math.max(0,G.D.goal-G.spawned)+G.en.length,rate=clamp(1-left/G.D.goal,0,1);
+    ctx.fillStyle="rgba(255,255,255,.15)";ctx.fillRect(18,50,W-36,7);
+    ctx.fillStyle=left<=10?"#ff9a9a":"#ffd76e";ctx.fillRect(18,50,(W-36)*rate,7);
+    ctx.fillStyle="#ffd76e";ctx.fillText("のこり "+left+"体　（たおした数 "+G.kills+"）",18,72);
+  }else{
+    ctx.fillStyle="#ffd76e";ctx.fillText("∞　"+G.kills+"体　"+G.t.toFixed(1)+"秒",18,72);
+  }
+  ctx.fillStyle="rgba(255,255,255,.8)";
+  let s="コイン "+G.money;
+  if(p.ward>0)s+="　結界 ×"+p.ward;
+  s+="　"+G.D.nm;
+  ctx.textAlign="right";ctx.fillText(s,W-18,72);ctx.textAlign="left";
+  if(G.toast){
+    ctx.globalAlpha=Math.min(1,G.toast.l*1.6);
+    ctx.textAlign="center";ctx.font='bold 15px "Meiryo UI",Meiryo,sans-serif';
+    ctx.strokeStyle="rgba(20,14,40,.9)";ctx.lineWidth=4;
+    ctx.strokeText(G.toast.text,W/2,96);
+    ctx.fillStyle=G.toast.c;ctx.fillText(G.toast.text,W/2,96);
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- ループ ---------- */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(G&&G.state==="play")update(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);requestAnimationFrame(draw);
+
+/* ---------- タイトルのプレビュー ---------- */
+function preview(){
+  if(!$("title").classList.contains("on")){requestAnimationFrame(preview);return}
+  document.querySelectorAll(".pick").forEach(b=>{
+    const pc=b.querySelector("canvas").getContext("2d");
+    pc.clearRect(0,0,76,78);pc.save();pc.translate(38,44);
+    drawHero(pc,0,0,b.dataset.c,{tier:1,hat:true,cape:true,wing:false,aura:false},1,performance.now()/1000);
+    pc.restore();
+  });
+  requestAnimationFrame(preview);
+}
+buildSprites();
+preview();
+
+document.querySelectorAll(".pick").forEach(b=>b.onclick=()=>newGame(b.dataset.c));
+$("seg").onclick=e=>{
+  if(e.target.tagName!=="BUTTON")return;
+  mode=e.target.dataset.m;
+  [...$("seg").children].forEach(x=>x.classList.toggle("sel",x===e.target));
+  refreshHi();
+};
+$("shX").onclick=()=>openShare("https://x.com/intent/post?text="+encodeURIComponent(shareText()));
+$("shL").onclick=()=>openShare("https://line.me/R/share?text="+encodeURIComponent(shareText()));
+$("shC").onclick=()=>copyResult();
+refreshHi();
+$("closeShop").onclick=closeShop;
+$("again").onclick=()=>newGame(G.type);
+$("back").onclick=()=>{G=null;$("over").classList.remove("on");$("title").classList.add("on")};
+</script>
+</body>
+</html>
